@@ -1,0 +1,34 @@
+{
+  "_comment": "plate_corners_px = tight bounding box of the 9-well block only (not the whole plastic cassette). TL/BR define the grid the bilinear formula interpolates across.",
+  "needs_verify": true,
+  "id": "DR005",
+  "image_size_px": [888, 1280],
+  "orientation": "portrait",
+  "reactive_line": "row1",
+  "visible_grid": { "rows": 3, "cols": 3 },
+  "plate_corners_px": {
+    "tl": [0,   155],
+    "tr": [888, 155],
+    "br": [888, 825],
+    "bl": [0,   825]
+  },
+  "strip_corners_px": {
+    "tl": [82,  835],
+    "tr": [818, 835],
+    "br": [818, 1250],
+    "bl": [82,  1250]
+  },
+  "strip_layout": {
+    "rows": 2,
+    "cols": 4,
+    "patches": ["K", "Y", "M", "C", "grey", "white", "orange"],
+    "note": "Bottom row: grey(col0), white(col2 — cols 1+2 merged visually), orange(col3). Col1 bottom skipped."
+  },
+  "labels": {
+    "positive_cells": ["R1C1", "R1C2", "R1C3"],
+    "negative_cells": ["R2C1", "R2C2", "R2C3", "R3C1", "R3C2", "R3C3"]
+  },
+  "correction_method": "cmyk",
+  "quality_grade": "A",
+  "notes": "Reference exemplar. Even diffuse light, sharp, no significant glare. Use as the gold-standard positive."
+}

@@ -23,6 +23,12 @@ class TestResult extends HiveObject {
   @HiveField(5)
   final String imagePath;
 
+  @HiveField(6)
+  final bool isFlagged;
+
+  @HiveField(7)
+  final String? flagNote;
+
   TestResult({
     required this.id,
     required this.timestamp,
@@ -30,5 +36,20 @@ class TestResult extends HiveObject {
     required this.confidence,
     required this.dotReadings,
     required this.imagePath,
+    this.isFlagged = false,
+    this.flagNote,
   });
+
+  TestResult copyWith({bool isFlagged = false, String? flagNote}) {
+    return TestResult(
+      id: id,
+      timestamp: timestamp,
+      outcome: outcome,
+      confidence: confidence,
+      dotReadings: dotReadings,
+      imagePath: imagePath,
+      isFlagged: isFlagged,
+      flagNote: flagNote,
+    );
+  }
 }

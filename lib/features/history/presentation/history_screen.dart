@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/history_provider.dart';
+import '../services/csv_export_service.dart';
 import 'widgets/test_record_tile.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -16,6 +17,15 @@ class HistoryScreen extends ConsumerWidget {
         title: const Text('Test History'),
         centerTitle: true,
         actions: [
+          historyState.whenOrNull(
+            data: (results) => results.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.ios_share),
+                    tooltip: 'Export CSV',
+                    onPressed: () => CsvExportService().exportAndShare(results),
+                  )
+                : null,
+          ) ?? const SizedBox.shrink(),
           historyState.whenOrNull(
             data: (results) => results.isNotEmpty
                 ? IconButton(

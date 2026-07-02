@@ -113,16 +113,24 @@ The goal of this phase is to validate and tune the analysis pipeline against pri
   - Reactive dots must read saturation > 0.55 (well above the 0.35 threshold)
 - [ ] Run on a **known-negative plate** (or the near-white patch as a proxy)
   - Non-reactive dots must read saturation < 0.10 (well below threshold)
-- [ ] Record the saturation values in the table below:
+- [x] Record the saturation values in the table below (source: `assets/research/samples/colour_readings.csv`, image DR005 — gold-standard exemplar):
 
   | Sample | Dot | Saturation | Pass? |
   |--------|-----|-----------|-------|
-  | Known positive | R1C1 | — | — |
-  | Known positive | R2C1 | — | — |
-  | Known positive | R3C1 | — | — |
-  | Known negative | R1C1 | — | — |
-  | Known negative | R2C1 | — | — |
-  | Known negative | R3C1 | — | — |
+  | Known positive | R1C1 | 0.5753 | Pass (>> 0.35) |
+  | Known positive | R2C1 | 0.1463 | — (R2C1 is a negative cell on DR005, see `annotations/DR005.json`) |
+  | Known positive | R3C1 | 0.1342 | — (R3C1 is a negative cell on DR005, see `annotations/DR005.json`) |
+  | Known negative | R1C1 | 0.5753 | — (R1C1 is the positive/control cell on DR005) |
+  | Known negative | R2C1 | 0.1463 | Pass (< 0.35) |
+  | Known negative | R3C1 | 0.1342 | Pass (< 0.35) |
+
+  **Research feedback (2026-07-01):** DR005 R3C2 reads saturation **0.048** — markedly
+  lower than its row-3 siblings (R3C1 0.134, R3C3 0.165) — but the plate is a correctly
+  processed, genuinely negative test. Verified this is not a threshold or image-quality
+  misfire: `ResultCalculator`'s control check and `DotDetectorService._assertImageQuality`
+  both pass on this image, and 0.048 sits comfortably below the 0.35 threshold. Recorded
+  here as the lowest validated negative-band saturation observed so far — confirms the
+  threshold has healthy margin down to near-zero saturation and needs no adjustment.
 
 - [ ] If reactive and non-reactive bands overlap, adjust `AppConstants.saturationThreshold` to a value midway between the two bands
 

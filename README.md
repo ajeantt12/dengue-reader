@@ -38,10 +38,68 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-### Build a release APK
+### Running on a virtual device (emulator)
+
+List available emulators:
+
+```bash
+flutter emulators
+```
+
+Launch one (replace `Pixel_7` with the emulator id from the list above):
+
+```bash
+flutter emulators --launch Pixel_7
+```
+
+Once it's booted, confirm it's visible to Flutter:
+
+```bash
+flutter devices
+```
+
+Then run the app on it:
+
+```bash
+flutter run -d emulator-5554
+```
+
+(the device id shown by `flutter devices`; `flutter run` will also prompt you to pick a device interactively if you omit `-d`)
+
+Camera capture won't work on the emulator (no real camera feed), but **Demo Mode** and **Upload from Gallery** on the home screen work fine for exercising the full analysis → result → history pipeline without a physical device.
+
+### Building the APK
+
+Debug build (fastest, for quick testing/sideloading):
+
+```bash
+flutter build apk --debug
+```
+
+Release build (smaller/faster, but   currently uses Flutter's default debug signing — not yet configured for Play Store distribution):
 
 ```bash
 flutter build apk --release
+```
+
+Both output to `build/app/outputs/flutter-apk/`. Install directly to a connected device or running emulator:
+
+```bash
+flutter install
+```
+
+or manually:
+
+```bash
+adb install build/app/outputs/flutter-apk/app-debug.apk
+```
+
+If a build fails after dependency or generated-code changes, run `flutter clean` first and rebuild.
+
+### Running tests
+
+```bash
+flutter test
 ```
 
 ## Project structure

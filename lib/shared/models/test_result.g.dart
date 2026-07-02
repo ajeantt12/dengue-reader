@@ -23,13 +23,15 @@ class TestResultAdapter extends TypeAdapter<TestResult> {
       confidence: fields[3] as double,
       dotReadings: (fields[4] as List).cast<DotReading>(),
       imagePath: fields[5] as String,
+      isFlagged: fields[6] as bool,
+      flagNote: fields[7] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, TestResult obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +43,11 @@ class TestResultAdapter extends TypeAdapter<TestResult> {
       ..writeByte(4)
       ..write(obj.dotReadings)
       ..writeByte(5)
-      ..write(obj.imagePath);
+      ..write(obj.imagePath)
+      ..writeByte(6)
+      ..write(obj.isFlagged)
+      ..writeByte(7)
+      ..write(obj.flagNote);
   }
 
   @override

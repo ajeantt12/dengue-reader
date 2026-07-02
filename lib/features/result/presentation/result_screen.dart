@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/test_result.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../history/providers/history_provider.dart';
 import 'widgets/result_card.dart';
 import 'widgets/dot_grid_display.dart';
 import 'widgets/confidence_indicator.dart';
@@ -13,9 +15,56 @@ class ResultScreen extends ConsumerWidget {
 
   const ResultScreen({super.key, required this.result});
 
+  Future<void> _showFlagDialog(BuildContext context, WidgetRef ref, TestResult current) async {
+    final controller = TextEditingController(text: current.flagNote ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(current.isFlagged ? 'Update flag' : 'Flag this result'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Note (optional)',
+            hintText: 'e.g. visually positive but read as negative',
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          if (current.isFlagged)
+            TextButton(
+              onPressed: () async {
+                await ref.read(historyNotifierProvider.notifier).setFlag(current.id, false, null);
+                if (ctx.mounted) Navigator.pop(ctx, false);
+              },
+              child: const Text('Remove flag'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Flag'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref
+          .read(historyNotifierProvider.notifier)
+          .setFlag(current.id, true, controller.text.trim().isEmpty ? null : controller.text.trim());
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateStr = DateFormat('d MMM yyyy, HH:mm').format(result.timestamp);
+    final historyState = ref.watch(historyNotifierProvider);
+    final current = historyState.maybeWhen(
+      data: (results) => results.where((r) => r.id == result.id).firstOrNull,
+      orElse: () => null,
+    ) ?? result;
+
+    final dateStr = DateFormat('d MMM yyyy, HH:mm').format(current.timestamp);
 
     return Scaffold(
       appBar: AppBar(
@@ -35,11 +84,36 @@ class ResultScreen extends ConsumerWidget {
             children: [
               Text(dateStr, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 16),
-              ResultCard(result: result),
+              ResultCard(result: current),
               const SizedBox(height: 24),
-              ConfidenceIndicator(confidence: result.confidence),
+              ConfidenceIndicator(confidence: current.confidence),
               const SizedBox(height: 24),
-              DotGridDisplay(readings: result.dotReadings),
+              DotGridDisplay(readings: current.dotReadings),
+              if (current.isFlagged) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.flag, color: AppColors.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          current.flagNote?.isNotEmpty == true
+                              ? current.flagNote!
+                              : 'Flagged for review',
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
               AppButton(
                 text: 'New Test',
@@ -50,6 +124,12 @@ class ResultScreen extends ConsumerWidget {
                 text: 'View History',
                 isPrimary: false,
                 onPressed: () => context.pushNamed('history'),
+              ),
+              const SizedBox(height: 12),
+              AppButton(
+                text: current.isFlagged ? 'Update Flag' : 'Flag Incorrect Result',
+                isPrimary: false,
+                onPressed: () => _showFlagDialog(context, ref, current),
               ),
             ],
           ),

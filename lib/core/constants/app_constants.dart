@@ -1,5 +1,14 @@
 class AppConstants {
-  static const double brightnessThreshold = 0.3;
+  // Hysteresis band for auto-torch: torch turns ON below the low threshold
+  // and OFF above the high threshold. The gap prevents the flash from
+  // glaring the scene bright enough to immediately switch itself off again
+  // (which previously caused a rapid on/off flicker loop).
+  static const double torchOnThreshold = 0.18;
+  static const double torchOffThreshold = 0.40;
+
+  // Minimum time between automatic torch switches, as a second safeguard
+  // against flicker from transient brightness spikes (e.g. glare).
+  static const Duration torchSwitchCooldown = Duration(milliseconds: 1200);
   static const int countdownSeconds = 3;
 
   // Reference patch — top-right corner (normalized, relative to full image)

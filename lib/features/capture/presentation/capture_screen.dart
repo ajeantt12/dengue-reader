@@ -319,6 +319,40 @@ class _DemoTile extends StatelessWidget {
 
 // ─── Camera viewfinder screen ────────────────────────────────────────────────
 
+/// Renders [CameraPreview] scaled to fill its parent (cover), preserving the
+/// sensor's native aspect ratio instead of letting the Stack stretch it to
+/// fit the device screen — the cause of the distorted preview seen on
+/// devices like the Pixel 7a, whose sensor aspect ratio differs from the
+/// screen's.
+class _CoverCameraPreview extends StatelessWidget {
+  final CameraController controller;
+
+  const _CoverCameraPreview({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final previewAspect = controller.value.aspectRatio;
+        var scale = size.aspectRatio * previewAspect;
+        if (scale < 1) scale = 1 / scale;
+        return ClipRect(
+          child: Transform.scale(
+            scale: scale,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: previewAspect,
+                child: CameraPreview(controller),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class CameraViewfinderScreen extends ConsumerStatefulWidget {
   const CameraViewfinderScreen({super.key});
 
@@ -333,6 +367,7 @@ class _CameraViewfinderScreenState
   Timer? _timer;
   double _brightness = 0.5;
   bool _monitoringStarted = false;
+  TorchMode _torchMode = TorchMode.auto;
 
   @override
   void initState() {
@@ -350,6 +385,16 @@ class _CameraViewfinderScreenState
         .startBrightnessStream((b) {
       if (mounted) setState(() => _brightness = b);
     });
+  }
+
+  void _cycleTorchMode() {
+    final next = switch (_torchMode) {
+      TorchMode.auto => TorchMode.on,
+      TorchMode.on => TorchMode.off,
+      TorchMode.off => TorchMode.auto,
+    };
+    setState(() => _torchMode = next);
+    ref.read(cameraControllerNotifierProvider.notifier).setTorchMode(next);
   }
 
   void _startCapture() {
@@ -410,8 +455,8 @@ class _CameraViewfinderScreenState
           return Stack(
             fit: StackFit.expand,
             children: [
-              CameraPreview(controller),
-              const ViewfinderOverlay(),
+              _CoverCameraPreview(controller: controller),
+              ViewfinderOverlay(brightness: _brightness),
               if (_countdown > 0)
                 Center(
                   child: Text(
@@ -439,6 +484,24 @@ class _CameraViewfinderScreenState
                 left: 0,
                 right: 0,
                 child: Center(child: LightingIndicator(brightness: _brightness)),
+              ),
+              // Torch toggle (auto / on / off)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                right: 8,
+                child: IconButton(
+                  icon: Icon(
+                    switch (_torchMode) {
+                      TorchMode.auto => Icons.flash_auto,
+                      TorchMode.on => Icons.flash_on,
+                      TorchMode.off => Icons.flash_off,
+                    },
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  tooltip: 'Flash: ${_torchMode.name}',
+                  onPressed: _cycleTorchMode,
+                ),
               ),
               // Capture button
               Positioned(

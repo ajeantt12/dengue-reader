@@ -33,4 +33,12 @@ class HistoryNotifier extends _$HistoryNotifier {
     await box.clear();
     ref.invalidateSelf();
   }
+
+  Future<void> setFlag(String id, bool flagged, String? note) async {
+    final box = await Hive.openBox<TestResult>(_boxName);
+    final existing = box.get(id);
+    if (existing == null) return;
+    await box.put(id, existing.copyWith(isFlagged: flagged, flagNote: note));
+    ref.invalidateSelf();
+  }
 }

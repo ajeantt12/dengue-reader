@@ -4,10 +4,20 @@ import '../../../core/constants/app_constants.dart';
 
 part 'camera_provider.g.dart';
 
+/// Torch control mode: [auto] follows the ambient-brightness heuristic,
+/// [on]/[off] are user-forced states that suspend the heuristic.
+enum TorchMode { auto, on, off }
+
 @riverpod
 class CameraControllerNotifier extends _$CameraControllerNotifier {
   CameraController? _controller;
   bool _isStreaming = false;
+  TorchMode _torchMode = TorchMode.auto;
+  bool _torchOn = false;
+  DateTime? _lastTorchSwitch;
+
+  TorchMode get torchMode => _torchMode;
+  bool get isTorchOn => _torchOn;
 
   @override
   FutureOr<CameraController?> build() async {
@@ -66,17 +76,46 @@ class CameraControllerNotifier extends _$CameraControllerNotifier {
     return file;
   }
 
-  Future<void> toggleTorch(bool enabled) async {
-    if (_controller == null) return;
-    await _controller!.setFlashMode(enabled ? FlashMode.torch : FlashMode.off);
+  /// User-driven torch control. Setting [TorchMode.on] or [TorchMode.off]
+  /// forces the flash and suspends the auto-brightness heuristic;
+  /// [TorchMode.auto] hands control back to [_autoTorch].
+  Future<void> setTorchMode(TorchMode mode) async {
+    _torchMode = mode;
+    switch (mode) {
+      case TorchMode.on:
+        await _setTorch(true);
+      case TorchMode.off:
+        await _setTorch(false);
+      case TorchMode.auto:
+        break;
+    }
   }
 
+  Future<void> _setTorch(bool on) async {
+    if (_controller == null || _torchOn == on) return;
+    _torchOn = on;
+    _lastTorchSwitch = DateTime.now();
+    try {
+      await _controller!.setFlashMode(on ? FlashMode.torch : FlashMode.off);
+    } catch (_) {}
+  }
+
+  /// Auto-brightness torch heuristic. Uses a hysteresis band (torch turns on
+  /// only below [AppConstants.torchOnThreshold] and off only above
+  /// [AppConstants.torchOffThreshold]) plus a minimum switch interval, since
+  /// the torch itself changes scene brightness — without both guards a
+  /// single threshold flickers the flash on/off every frame.
   void _autoTorch(double brightness) {
-    if (_controller == null) return;
-    if (brightness < AppConstants.brightnessThreshold) {
-      _controller!.setFlashMode(FlashMode.torch);
-    } else {
-      _controller!.setFlashMode(FlashMode.off);
+    if (_controller == null || _torchMode != TorchMode.auto) return;
+    final now = DateTime.now();
+    if (_lastTorchSwitch != null &&
+        now.difference(_lastTorchSwitch!) < AppConstants.torchSwitchCooldown) {
+      return;
+    }
+    if (!_torchOn && brightness < AppConstants.torchOnThreshold) {
+      _setTorch(true);
+    } else if (_torchOn && brightness > AppConstants.torchOffThreshold) {
+      _setTorch(false);
     }
   }
 

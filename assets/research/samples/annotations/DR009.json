@@ -1,0 +1,34 @@
+{
+  "_comment": "plate_corners = tight bounding box of the 9-well block. BL_y extended to 687.",
+  "needs_verify": true,
+  "id": "DR009",
+  "image_size_px": [939, 1280],
+  "orientation": "portrait",
+  "reactive_line": "row1",
+  "visible_grid": { "rows": 3, "cols": 3 },
+  "plate_corners_px": {
+    "tl": [0,   162],
+    "tr": [939, 162],
+    "br": [939, 687],
+    "bl": [0,   687]
+  },
+  "strip_corners_px": {
+    "tl": [85,  825],
+    "tr": [790, 825],
+    "br": [790, 1220],
+    "bl": [85,  1220]
+  },
+  "strip_layout": {
+    "rows": 2,
+    "cols": 4,
+    "patches": ["K", "Y", "M", "C", "grey", "white", "orange"],
+    "note": "Cyan patch has specular glare top-right. Strip corners target inner card."
+  },
+  "labels": {
+    "positive_cells": ["R1C1", "R1C2", "R1C3"],
+    "negative_cells": ["R2C1", "R2C2", "R2C3", "R3C1", "R3C2", "R3C3"]
+  },
+  "correction_method": "cmyk",
+  "quality_grade": "A",
+  "notes": "Strong positives. Minor glare on cyan patch."
+}

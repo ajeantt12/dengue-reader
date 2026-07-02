@@ -1,0 +1,13 @@
+{
+  "id": "DRNNN",
+  "image_size_px": [null, null],
+  "orientation": "portrait|landscape",
+  "reactive_line": "row1|col1",
+  "visible_grid": { "rows": null, "cols": null },
+  "plate_corners_px": { "tl": [null, null], "tr": [null, null], "br": [null, null], "bl": [null, null] },
+  "strip_corners_px": { "tl": [null, null], "tr": [null, null], "br": [null, null], "bl": [null, null] },
+  "strip_layout": { "rows": 2, "cols": 4, "patches": ["K", "Y", "M", "C", "grey", "white", "orange"] },
+  "labels": { "positive_cells": [], "negative_cells": [] },
+  "correction_method": "cmyk",
+  "notes": ""
+}

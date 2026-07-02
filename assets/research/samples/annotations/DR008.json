@@ -1,0 +1,34 @@
+{
+  "_comment": "plate_corners = tight bounding box of the 9-well block. BL_y extended to 707 so row spacing matches actual well positions.",
+  "needs_verify": true,
+  "id": "DR008",
+  "image_size_px": [896, 1280],
+  "orientation": "portrait",
+  "reactive_line": "row1",
+  "visible_grid": { "rows": 3, "cols": 3 },
+  "plate_corners_px": {
+    "tl": [24,  182],
+    "tr": [867, 182],
+    "br": [867, 707],
+    "bl": [24,  707]
+  },
+  "strip_corners_px": {
+    "tl": [115, 800],
+    "tr": [782, 800],
+    "br": [782, 1200],
+    "bl": [115, 1200]
+  },
+  "strip_layout": {
+    "rows": 2,
+    "cols": 4,
+    "patches": ["K", "Y", "M", "C", "grey", "white", "orange"],
+    "note": "Strip inside plastic zip-lock bag. Strip corners target inner card."
+  },
+  "labels": {
+    "positive_cells": ["R1C1", "R1C2", "R1C3"],
+    "negative_cells": ["R2C1", "R2C2", "R2C3", "R3C1", "R3C2", "R3C3"]
+  },
+  "correction_method": "cmyk",
+  "quality_grade": "A",
+  "notes": "Strong saturated positives. Good bright-end exemplar for intensity threshold."
+}

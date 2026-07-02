@@ -36,7 +36,16 @@ class TestRecordTile extends StatelessWidget {
           color: result.outcome == 'positive' ? AppColors.positive : AppColors.negative,
           size: 36,
         ),
-        title: StatusBadge(status: status),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            StatusBadge(status: status),
+            if (result.isFlagged) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.flag, size: 16, color: AppColors.error),
+            ],
+          ],
+        ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text('$dateStr  ·  Confidence $pct%', style: const TextStyle(fontSize: 12)),
