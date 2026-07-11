@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_version_label.dart';
 import '../providers/camera_provider.dart';
 import '../services/demo_service.dart';
 import 'widgets/capture_button.dart';
@@ -23,7 +24,13 @@ class CaptureScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('DengueReader'),
+        title: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('DengueReader'),
+            AppVersionLabel(),
+          ],
+        ),
         centerTitle: true,
         actions: [
           IconButton(
@@ -324,6 +331,13 @@ class _DemoTile extends StatelessWidget {
 /// fit the device screen — the cause of the distorted preview seen on
 /// devices like the Pixel 7a, whose sensor aspect ratio differs from the
 /// screen's.
+///
+/// [CameraController.value.previewSize] is always reported in the sensor's
+/// native landscape orientation (width > height), even when the device and
+/// preview are portrait — so it's swapped here before sizing the child that
+/// [FittedBox] scales to cover. Feeding the un-swapped ratio straight into an
+/// `AspectRatio` widget (as a previous version of this did) produces a short,
+/// wide box letterboxed by black bars top and bottom in portrait mode.
 class _CoverCameraPreview extends StatelessWidget {
   final CameraController controller;
 
@@ -331,24 +345,22 @@ class _CoverCameraPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
-        final previewAspect = controller.value.aspectRatio;
-        var scale = size.aspectRatio * previewAspect;
-        if (scale < 1) scale = 1 / scale;
-        return ClipRect(
-          child: Transform.scale(
-            scale: scale,
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: previewAspect,
-                child: CameraPreview(controller),
-              ),
-            ),
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return CameraPreview(controller);
+    }
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.height,
+            height: previewSize.width,
+            child: CameraPreview(controller),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
