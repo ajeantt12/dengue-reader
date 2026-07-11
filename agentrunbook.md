@@ -204,8 +204,10 @@ observe.
 **Current convention (2026-07-11):**
 [lib/core/constants/build_info.dart](lib/core/constants/build_info.dart)
 reads the `GIT_COMMIT` compile-time value; it is normal tracked source, not a
-generated file. Build a device/release APK with the exact commit after it
-exists, for example `flutter build apk --release
+generated file. [AppVersionLabel](lib/shared/widgets/app_version_label.dart)
+also reads the installed app version/build number via `package_info_plus`, so
+the header shows `v<version>+<build> · Build <commit>`. Build a
+device/release APK with the exact commit after it exists, for example `flutter build apk --release
 --dart-define=GIT_COMMIT=<short-hash>`. Without that argument, local/debug
 builds deliberately display `Build development` rather than a misleading
 commit hash. Do not reintroduce a source file stamped before commit time:

@@ -91,7 +91,8 @@ build — see Session 6) and must not be used to judge the current code.
 checkout could display an incorrect commit label. It has been replaced with
 the `GIT_COMMIT` Flutter compile-time value. Release/device builds must pass
 `--dart-define=GIT_COMMIT=<short-hash>` after committing; normal local builds
-show `Build development` explicitly rather than claim the wrong commit.
+show their version plus `Build development` explicitly rather than claim the
+wrong commit.
 
 **Open threads** (carried forward until resolved):
 - Neither concurrent session has yet visually confirmed the result screen
@@ -137,6 +138,33 @@ on a device (still only statically analyzed, never device-confirmed).
 ---
 
 ## Session Log (newest first)
+
+### 2026-07-11 - Session 9 - Restore visible app version - Codex / GPT-5
+
+**Goal this session:** Show the app release version as well as the source
+build identifier in the home-screen header, then commit, push, and update the
+connected Pixel 7a.
+
+**Diagnosis:** Session 8 intentionally removed `package_info_plus` with the
+obsolete generated commit metadata, but that package also provided the
+installed app version. The header consequently retained only `Build <hash>`.
+
+**Changed:** Restored `package_info_plus` solely for runtime version metadata.
+`AppVersionLabel` now renders `v<version>+<build> · Build <commit>`, with a
+widget regression test using deterministic package metadata.
+
+**Verification:** Dependency refresh completed; `flutter test` passes 9/9,
+including the version/build-label regression. `flutter analyze` reports only
+the existing generated-router `AutoDisposeProviderRef` deprecation info.
+
+**Learned:** Build-time source metadata and installed app version are separate
+concerns: the former belongs in a compile-time define; the latter comes from
+the application package metadata.
+
+**Failed attempts:** None.
+
+**State at end of session:** Ready for final commit, push, release build, and
+device update.
 
 ### 2026-07-11 - Session 8 - Exact build metadata and commit hygiene - Codex / GPT-5
 
