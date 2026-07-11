@@ -5,7 +5,7 @@
 // changes) at generation time, so a running app build can be matched back to
 // the source commit it came from.
 class BuildInfo {
-  static const String gitCommit = 'ea24c77';
+  static const String gitCommit = 'd724540';
   static const bool isDirty = true;
-  static const String generatedAt = '2026-07-11T08:54:53.409169Z';
+  static const String generatedAt = '2026-07-11T08:55:52.550510Z';
 }
