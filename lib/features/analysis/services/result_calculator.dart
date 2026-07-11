@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/models/dot_reading.dart';
 
@@ -20,7 +22,8 @@ class AnalysisResult {
     this.reactiveDotIds = const {},
   });
 
-  String get outcomeString => outcome.name; // 'positive' / 'negative' / 'invalid'
+  String get outcomeString =>
+      outcome.name; // 'positive' / 'negative' / 'invalid'
 }
 
 /// Judges a plate from its sampled well readings using on-plate calibration:
@@ -52,10 +55,19 @@ class ResultCalculator {
   /// there's nothing to calibrate a threshold from and the test is invalid.
   static const double _minControlSeparation = 0.08;
 
+  /// When the controls are too close to calibrate a reliable *negative*, two
+  /// sample wells may still be sufficiently stronger than both controls to
+  /// provide unambiguous positive evidence. This margin prevents a small
+  /// sampling fluctuation from bypassing the control-quality check.
+  static const double _strongSampleExcess = 0.10;
+
   AnalysisResult calculate(List<DotReading> readings) {
     if (readings.isEmpty) {
       return const AnalysisResult(
-          outcome: TestOutcome.invalid, confidence: 0, readings: []);
+        outcome: TestOutcome.invalid,
+        confidence: 0,
+        readings: [],
+      );
     }
 
     final posControl = readings.where((d) => d.dotId.startsWith('R1')).toList();
@@ -65,34 +77,76 @@ class ResultCalculator {
     if (posControl.isEmpty || negControl.isEmpty || sample.isEmpty) {
       // Rows can't be told apart — no control wells to calibrate against.
       return AnalysisResult(
-          outcome: TestOutcome.invalid, confidence: 0, readings: readings);
+        outcome: TestOutcome.invalid,
+        confidence: 0,
+        readings: readings,
+      );
     }
 
     final posAnchor = _avgSat(posControl);
     final negAnchor = _avgSat(negControl);
 
-    if (posAnchor - negAnchor < _minControlSeparation) {
-      return AnalysisResult(
-          outcome: TestOutcome.invalid, confidence: 0, readings: readings);
-    }
-
-    final threshold = negAnchor + _thresholdFraction * (posAnchor - negAnchor);
+    final controlSeparation = posAnchor - negAnchor;
+    final controlsAreReliable = controlSeparation >= _minControlSeparation;
+    final threshold = negAnchor + _thresholdFraction * controlSeparation;
     bool clearsThreshold(DotReading d) =>
         d.saturation >= threshold &&
         d.hue >= AppConstants.reactiveHueMin &&
         d.hue <= AppConstants.reactiveHueMax;
 
-    final reactiveDotIds =
-        readings.where(clearsThreshold).map((d) => d.dotId).toSet();
-    final sampleReactiveCount =
-        sample.where((d) => reactiveDotIds.contains(d.dotId)).length;
-    final isPositive = sampleReactiveCount >= _minReactiveInLine;
+    final reactiveDotIds = readings
+        .where(clearsThreshold)
+        .map((d) => d.dotId)
+        .toSet();
+    final sampleReactiveCount = sample
+        .where((d) => reactiveDotIds.contains(d.dotId))
+        .length;
+    final strongestControl = math.max(posAnchor, negAnchor);
+    final strongSampleCount = sample
+        .where(
+          (d) =>
+              clearsThreshold(d) &&
+              d.saturation >= strongestControl + _strongSampleExcess,
+        )
+        .length;
+
+    // A weak control gap means a negative result would be untrustworthy: the
+    // image has not established a dependable background/reactive boundary.
+    // It must not, however, erase a plainly stronger two-well sample such as
+    // the field capture that prompted this rule. In that case report positive
+    // with deliberately capped confidence; otherwise ask for a retake.
+    final hasStrongSampleEvidence = strongSampleCount >= _minReactiveInLine;
+    if (!controlsAreReliable && !hasStrongSampleEvidence) {
+      return AnalysisResult(
+        outcome: TestOutcome.invalid,
+        confidence: 0,
+        readings: readings,
+        reactiveDotIds: reactiveDotIds,
+      );
+    }
+
+    final isPositive = controlsAreReliable
+        ? sampleReactiveCount >= _minReactiveInLine
+        : hasStrongSampleEvidence;
 
     // Confidence = how decisively the sample's average sits away from the
     // calibrated threshold, normalized by the control spread.
     final avgSampleSat = _avgSat(sample);
-    final margin = (avgSampleSat - threshold).abs() / (posAnchor - negAnchor);
-    final confidence = (0.5 + margin).clamp(0.5, 1.0);
+    final margin =
+        (avgSampleSat - threshold).abs() /
+        (controlSeparation.abs() < 1e-9 ? 1e-9 : controlSeparation.abs());
+    final calibratedConfidence = (0.5 + margin).clamp(0.5, 1.0);
+    final confidence = controlsAreReliable
+        ? calibratedConfidence
+        : math.min(
+            0.75,
+            0.55 +
+                ((avgSampleSat - strongestControl) / _strongSampleExcess).clamp(
+                      0.0,
+                      1.0,
+                    ) *
+                    0.20,
+          );
 
     return AnalysisResult(
       outcome: isPositive ? TestOutcome.positive : TestOutcome.negative,

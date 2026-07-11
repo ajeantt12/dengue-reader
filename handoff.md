@@ -56,17 +56,48 @@ math.
 and live** — `analysis_provider.dart` calls it, the old
 `colour_correction_service.dart`/`dot_detector_service.dart` are deleted, and
 `test/plate_detector_test.dart` + `tool/validate_detector.dart` validate it
-against the gold set. Session 5 (below) went further and changed the
-*classification scheme* on top of that detector: `ResultCalculator` now
-reads the 3×3 grid as **Row 1 = positive control, Row 2 = negative control,
-Row 3 = sample**, deriving an adaptive reactive threshold from the two
-control rows each shot instead of using the fixed global
-`AppConstants.saturationThreshold`. See `agentrunbook.md`'s "Domain
-constants" section for the full detail and a footgun about the gold set's
-outdated ground-truth labels. Phase 3 (error-state UX) and Phase 4 (device
-QA) haven't started. See `PROGRESS.md` for the full phase checklist.
+against the gold set. Session 5 changed the *classification scheme* on top
+of that detector: `ResultCalculator` now reads the 3×3 grid as **Row 1 =
+positive control, Row 2 = negative control, Row 3 = sample**, deriving an
+adaptive reactive threshold from the two control rows each shot instead of
+the fixed global `AppConstants.saturationThreshold`. Sessions 6 (Claude
+Code) and 7 (Codex/GPT-5) — running concurrently, working the same reported
+bug — added an asymmetric override on top: a weak control-separation gap
+alone can no longer force `invalid` when two-plus sample wells each exceed
+both controls by a wide margin; that case reports `positive` (confidence
+capped at 75%) instead. Weak-control cases *without* that strong evidence
+still correctly report `invalid`, never a wrong `negative`. This combined
+logic is the **current shipped classifier** — 9/9 tests pass across both
+sessions' test files. See `agentrunbook.md`'s "Domain constants" section for
+the full detail, including footguns about the gold set's outdated
+ground-truth labels and `flutter install` not reliably rebuilding. Phase 3
+(error-state UX) and Phase 4 (device QA) haven't started. See `PROGRESS.md`
+for the full phase checklist.
+
+**Latest validation (2026-07-11, Session 7/Codex):** The user's actual field
+photo (`PXL_20260711_093358352.jpg`) was run directly through
+`tool/analyse_capture.dart` (that session has filesystem access to it; it
+isn't checked into this repo). Detection geometry is correct — it locates
+the same 3×3 grid visible in the phone screenshots — and samples R3C1/R3C2
+at 37.5%/47.3% yellow saturation, vs. a strongest-control value of only
+12.4%. `ResultCalculator` now reports this `positive` at 75% confidence.
+This closes the gap Session 5 flagged (couldn't run the user's actual photo,
+only reasoned from the screenshot's displayed numbers). The in-app
+screenshots showing `NEGATIVE` all predate this fix (stale installed
+build — see Session 6) and must not be used to judge the current code.
 
 **Open threads** (carried forward until resolved):
+- Neither concurrent session has yet visually confirmed the result screen
+  on-device via Demo Mode with the final combined logic — Session 6's
+  on-device check was interrupted by the phone's screen lock before reaching
+  the result screen; Session 7 (sandboxed, no device access) verified via
+  `tool/analyse_capture.dart` and the test suite only.
+- This repo is being edited **concurrently by more than one tool in the same
+  sitting** (confirmed again this session, not just across separate
+  sessions as earlier docs assumed) — always `git status`/`git diff`
+  immediately before committing, and re-read a file right before editing it
+  if any time has passed, since another tool may have touched it since your
+  last read.
 - The gold research set (`DR005/008/009/010`) was shot under the *old*
   single-test-line plate design and does not physically represent the new
   control-row scheme (their row 3 never developed). Reshoot a gold set on
@@ -82,20 +113,132 @@ QA) haven't started. See `PROGRESS.md` for the full phase checklist.
   detector and may no longer be load-bearing now that `PlateDetectorService`
   locates everything from the image content — worth auditing whether
   `PROGRESS.md` Phase 2a–2f still describes the real calibration surface.
+- User has queued several new feature asks in `TODO.md` (image upload
+  alongside camera capture, support for multiple plate/strip orientations,
+  exporting captured images with data, preserving Hive data across an APK
+  update sent to the research team) — not started, not scoped yet.
 
-**Next step:** Reshoot/annotate a gold set on the new control-row plate
-design so `ResultCalculator`'s outcome logic (not just its detection
-geometry) has real photo coverage again. Separately, manually verify Session
-1's camera/torch/error-tip fixes on a device or emulator (see the four
-checks listed in Session 1's entry below — none of them are confirmed
-working yet, only statically analyzed) — and test the new control-row
-scheme end-to-end with a real capture through the app, since this session's
-photo evidence was a chat screenshot, not a file this session could run
-through `tool/validate_detector.dart` directly.
+**Next step:** Confirm the result screen visually on-device via Demo Mode
+(a fresh `flutter clean && flutter build apk --release` + adb install, then
+tap through Demo Mode — don't reuse a `flutter install`-only build). Reshoot/
+annotate a gold set on the new control-row plate design so outcome logic
+(not just detection geometry) has real photo coverage in the automated
+suite. Separately, manually verify Session 1's camera/torch/error-tip fixes
+on a device (still only statically analyzed, never device-confirmed).
 
 ---
 
 ## Session Log (newest first)
+
+### 2026-07-11 - Session 7 - Weak-control positive evidence fix - Codex / GPT-5
+
+**Goal this session:** Investigate why the supplied real plate photo showed
+two clearly saturated sample wells in Row 3 but the phone displayed a
+negative outcome, then make the result logic safely reflect that evidence.
+
+**Diagnosis:** The screenshot was from an older installed APK: its UI still
+said "Top row = reactive (test) line", which predates the Row 1/Row 2/Row 3
+control-row scheme. The current source did not reproduce `negative`; it
+returned `invalid` because the mean positive and negative control anchors in
+the actual photo differ by only 2.4 percentage points, below
+`_minControlSeparation` (8 points). Directly running the photo through the
+current detector confirmed its geometry is correct: R3C1/R3C2 are 37.5% and
+47.3% saturated yellow, while the strongest control is only 12.4%.
+
+**Changed:**
+- `ResultCalculator` retains the normal adaptive-control path, but a weak
+  control gap can no longer erase two yellow sample wells that each exceed
+  both controls by at least 10 percentage points. Such a case reports
+  `positive` with confidence capped at 75%; weak-control cases without this
+  evidence remain `invalid`, never `negative`.
+- Added `test/result_calculator_test.dart`, including the supplied-capture
+  regression values and an ambiguous weak-control case.
+- Added `tool/analyse_capture.dart` for reproducible direct diagnostics of an
+  arbitrary captured image.
+
+**Verification:** The supplied photo now reports `positive (75%)` with
+reactive wells R1C1/R3C1/R3C2. `flutter test` passes 9/9. Static analysis has
+only the existing generated-router deprecation info.
+
+**Learned:** A control-separation validity gate is appropriate for excluding
+an ambiguous negative call, but it must be asymmetric: strong, repeated
+sample evidence should rescue a positive; otherwise a faint physical positive
+becomes an unhelpful `invalid` even though its image evidence is decisive.
+
+**Failed attempts:** The `flutter`/`dart` batch wrappers hung in the Codex
+sandbox. Direct invocation of the SDK `dart.exe` works; Flutter commands
+still need SDK-cache write permission in this environment.
+
+**State at end of session:** Code and regression tests are ready to commit;
+the build has not yet been installed on the physical phone.
+
+### 2026-07-11 — Session 6 — On-device verification + a concurrent-tool fix found mid-session — Claude Code / Sonnet 5, plus an unattributed fix discovered from another tool (likely Codex, per `AGENTS.md`)
+
+**Goal this session:** Verify Session 5's control-row scheme actually works
+on the connected physical Pixel 7a (Session 5 had only verified it against
+gold photos and unit tests, not a live build), per the user's request to
+build and install via adb.
+
+**Changed (by me, Claude Code):**
+- [lib/features/capture/presentation/capture_screen.dart](lib/features/capture/presentation/capture_screen.dart) —
+  added `toolbarHeight: kToolbarHeight + 16` to the home AppBar. The
+  title+version-label `Column` (added Session 4) didn't fit the default
+  56dp toolbar height and was being silently clipped out entirely — no
+  visible overflow warning in a release build, just nothing rendered.
+  Confirmed fixed via adb screenshot after rebuilding.
+- `agentrunbook.md` — added a footgun entry: **`flutter install` does not
+  reliably rebuild first.** Confirmed this session — two consecutive
+  `flutter install` calls after real source edits both silently reinstalled
+  a 70+ minute-stale APK (tell: ~7s "Installing..." instead of the ~4-5 min
+  a real release build takes). Root-caused by comparing the installed APK's
+  file mtime against the edited source files' mtimes. Fix: always
+  `flutter clean && flutter build apk --release` before an on-device check,
+  don't trust `flutter install` alone.
+
+**Found, not written by me — a concurrent tool session (`AGENTS.md`'s
+footer identifies it as Codex-oriented context, so almost certainly a
+concurrent Codex session working the same bug) modified
+[result_calculator.dart](lib/features/analysis/services/result_calculator.dart)
+further while I was mid-verification, adding `_strongSampleExcess` /
+`strongestControl` / `hasStrongSampleEvidence` logic, plus new files
+`test/result_calculator_test.dart`, `tool/analyse_capture.dart`, and
+`AGENTS.md`.** This fixes a real gap in my Session 5 design: my
+`_minControlSeparation` gate invalidated the test whenever the two controls
+merely read close to each other, even when the sample itself was
+unambiguously far more reactive than either — which is exactly what the
+user's actual field capture did (posControl≈0.107, negControl≈0.083, a
+0.023 gap under my 0.08 minimum, while the real sample wells read 0.43/0.50,
+decisively higher than either control). Their fix: a positive call is still
+trusted when ≥2 sample wells clear both the interpolated threshold *and* an
+absolute margin over whichever control read higher
+(`strongestControl + 0.10`) — regardless of how well-separated the controls
+were. I verified this by running their new test file (confirmed it failed
+against my original Session 5 code, then passed against their patched
+version) and re-ran the full suite + `flutter analyze` — all green (9/9
+tests, 1 pre-existing unrelated analyzer info). I did not rewrite or revert
+their change; it's a strict improvement and is now the shipped logic.
+
+**Learned:**
+- This repo really is being edited concurrently by another tool mid-session,
+  not just across separate sessions as the existing docs assumed — a `git
+  status`/`git diff` check right before committing is not optional, it's
+  how this was caught. Don't assume the working tree only contains what you
+  personally wrote, even within one sitting.
+- Screen-locked Android devices produce a **fully black `adb shell
+  screencap` capture**, not an error — don't mistake that for a rendering
+  bug in the app. Per this project's existing rule (Session 1's "Failed
+  attempts"), don't try to unlock a secured device to work around it; wake
+  it and ask the user to unlock, or ask them to check directly.
+
+**State at end of session:** `flutter analyze` clean (1 pre-existing
+`deprecated_member_use` info, unrelated). `flutter test` passes 9/9 across
+`plate_detector_test.dart` (5), `result_calculator_test.dart` (2, from the
+concurrent session), and `widget_test.dart` (2). Verified for real on the
+connected Pixel 7a via adb screenshot: the version label now renders
+correctly after a genuine clean rebuild. Result-screen row-label/coloring
+verification via Demo Mode was in progress when the device's screen lock
+interrupted it — not yet visually confirmed on-device, only via the unit
+tests above.
 
 ### 2026-07-11 — Session 5 — Control-row (positive/negative/sample) classification scheme — Claude Code / Sonnet 5
 

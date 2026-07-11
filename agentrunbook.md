@@ -147,6 +147,15 @@ was updated to only assert what's still physically true of those photos
 Don't "fix" that mismatch by loosening the threshold — reshoot the gold set
 on the new plate design instead.
 
+**Weak control separation is asymmetric.** A small Row 1/Row 2 saturation
+gap cannot safely support a negative result, so it normally produces
+`Invalid`. Do not let that gate erase repeated, strong yellow sample evidence:
+if at least two Row 3 wells are each at least 0.10 saturation above both
+control averages, `ResultCalculator` reports `Positive` (at capped
+confidence). This is deliberately stricter than merely being higher than a
+control, which could be sampling noise; the values are regression-covered in
+`test/result_calculator_test.dart` from the 2026-07-11 field capture.
+
 ## Testing / verification
 
 There is no camera-hardware test harness — `captureImage`, `_autoTorch`, and
