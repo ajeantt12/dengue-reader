@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:image/image.dart' as img;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
-import '../services/colour_correction_service.dart';
-import '../services/dot_detector_service.dart';
+import '../services/plate_detector_service.dart';
 import '../services/result_calculator.dart';
+import '../../../core/exceptions/analysis_exception.dart';
 import '../../../shared/models/test_result.dart';
 import '../../../features/history/providers/history_provider.dart';
 
@@ -21,10 +21,12 @@ class AnalysisNotifier extends _$AnalysisNotifier {
     state = await AsyncValue.guard(() async {
       final bytes = await File(imagePath).readAsBytes();
       final image = img.decodeImage(bytes);
-      if (image == null) throw Exception('Failed to decode image');
+      if (image == null) throw const ImageDecodeException();
 
-      final corrected = ColourCorrectionService().applyCorrection(image);
-      final readings = DotDetectorService().detectDots(corrected);
+      // Locate the plate/strip and sample the wells by scanning the whole
+      // bright frame — no fixed template positions.
+      final detection = PlateDetectorService().analyse(image);
+      final readings = detection.readings;
       final result = ResultCalculator().calculate(readings);
 
       final testResult = TestResult(

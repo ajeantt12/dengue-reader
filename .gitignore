@@ -44,6 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# APK / app bundle builds (wherever they land, not just under /build/)
+*.apk
+*.aab
+*.ipa
+
 # Project-specific
 /apks/
 /documents/

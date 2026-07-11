@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 
+import '../../core/constants/app_constants.dart';
+
 part 'dot_reading.g.dart';
 
 @HiveType(typeId: 1)
@@ -35,5 +37,11 @@ class DotReading extends HiveObject {
     required this.rawB,
   });
 
-  bool get isReactive => saturation > 0.35;
+  /// A reactive well is a developed (yellow) reagent dot: hue in the yellow
+  /// band and saturation above threshold. Clear/negative wells fail the hue
+  /// gate even when their residual saturation is comparable.
+  bool get isReactive =>
+      hue >= AppConstants.reactiveHueMin &&
+      hue <= AppConstants.reactiveHueMax &&
+      saturation >= AppConstants.saturationThreshold;
 }

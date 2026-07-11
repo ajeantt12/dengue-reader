@@ -68,11 +68,17 @@ class CameraControllerNotifier extends _$CameraControllerNotifier {
     } catch (_) {}
   }
 
-  /// Stop the stream, capture a still image, restart the stream.
+  /// Stop the stream and capture a still image. Leaves the torch mode
+  /// untouched but switches the physical torch off afterwards: this provider
+  /// isn't disposed when navigating to the analysis screen (the camera route
+  /// stays underneath it in the stack), so without this the flash would stay
+  /// lit — pointed at nothing — for as long as the user is on the analysis
+  /// or error screen.
   Future<XFile> captureImage() async {
     if (_controller == null) throw StateError('Camera not ready');
     await _stopStream();
     final file = await _controller!.takePicture();
+    await _setTorch(false);
     return file;
   }
 
@@ -100,22 +106,25 @@ class CameraControllerNotifier extends _$CameraControllerNotifier {
     } catch (_) {}
   }
 
-  /// Auto-brightness torch heuristic. Uses a hysteresis band (torch turns on
-  /// only below [AppConstants.torchOnThreshold] and off only above
-  /// [AppConstants.torchOffThreshold]) plus a minimum switch interval, since
-  /// the torch itself changes scene brightness — without both guards a
-  /// single threshold flickers the flash on/off every frame.
+  /// Auto-brightness torch heuristic. Only ever switches the torch ON when
+  /// ambient brightness drops below [AppConstants.torchOnThreshold] — it
+  /// never auto-switches it back off. The torch's own light overwhelms the
+  /// brightness signal (a lit frame reads near-1.0), so any auto-off rule
+  /// driven by that same signal creates a feedback loop: torch on → frame
+  /// reads bright → torch off → frame reads dark again → torch on — an
+  /// endless strobe. Once auto-torch turns it on, only a manual toggle
+  /// (see [setTorchMode]) turns it back off.
   void _autoTorch(double brightness) {
-    if (_controller == null || _torchMode != TorchMode.auto) return;
+    if (_controller == null || _torchMode != TorchMode.auto || _torchOn) {
+      return;
+    }
     final now = DateTime.now();
     if (_lastTorchSwitch != null &&
         now.difference(_lastTorchSwitch!) < AppConstants.torchSwitchCooldown) {
       return;
     }
-    if (!_torchOn && brightness < AppConstants.torchOnThreshold) {
+    if (brightness < AppConstants.torchOnThreshold) {
       _setTorch(true);
-    } else if (_torchOn && brightness > AppConstants.torchOffThreshold) {
-      _setTorch(false);
     }
   }
 

@@ -72,7 +72,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
   }
 
   Widget _buildError(BuildContext context, Object error) {
-    final (icon, title, detail) = _parseError(error);
+    final (icon, title, message, tips) = _parseError(error);
 
     return Padding(
       padding: const EdgeInsets.all(32),
@@ -92,10 +92,43 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            detail,
+            message,
             style: const TextStyle(fontSize: 15, color: Colors.white60),
             textAlign: TextAlign.center,
           ),
+          if (tips.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final tip in tips)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.arrow_right, size: 18, color: Colors.white54),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              tip,
+                              style: const TextStyle(fontSize: 14, color: Colors.white70),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 40),
           SizedBox(
             width: double.infinity,
@@ -119,12 +152,13 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     );
   }
 
-  (IconData, String, String) _parseError(Object error) {
+  (IconData, String, String, List<String>) _parseError(Object error) {
     if (error is ImageTooDataarkException) {
       return (
         Icons.brightness_2,
         'Image too dark',
         error.userMessage,
+        error.tips,
       );
     }
     if (error is ImageOverexposedException) {
@@ -132,6 +166,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         Icons.brightness_7,
         'Too much glare',
         error.userMessage,
+        error.tips,
       );
     }
     if (error is PlateNotDetectedException) {
@@ -139,6 +174,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         Icons.crop_free,
         'Plate not detected',
         error.userMessage,
+        error.tips,
       );
     }
     if (error is ImageDecodeException) {
@@ -146,12 +182,14 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         Icons.broken_image_outlined,
         'Image error',
         error.userMessage,
+        error.tips,
       );
     }
     return (
       Icons.error_outline,
       'Something went wrong',
       'Please try capturing the image again.',
+      const <String>[],
     );
   }
 }

@@ -44,66 +44,129 @@ write "None" rather than omitting.
 ## PINNED: Current State
 
 **Goal:** DengueReader is a Flutter app that photographs dengue rapid-test
-cassettes, colour-corrects the shot against a printed reference patch,
-samples HSV saturation at 6 fixed dot positions, and reports
-Positive/Negative/Invalid. Target users are non-technical lab assistants in
-rural India, so capture UX (preview accuracy, lighting guidance, error
-recovery) matters as much as the analysis math.
+cassettes, locates the plate/wells content-based (no fixed template
+positions), white-balances against a printed CMYK strip, samples HSV
+saturation at each well, and reports Positive/Negative/Invalid. Target users
+are non-technical lab assistants in rural India, so capture UX (preview
+accuracy, lighting guidance, error recovery) matters as much as the analysis
+math.
 
-**State right now:** Core pipeline (capture → colour correction → dot
-detection → result → history) is implemented and was validated against a
-real gold-standard image (`DR005`) per `PROGRESS.md` Phase 2f. Session 1's
-camera/UX fixes and the repo-hygiene work from Session 3 are committed.
-Session 4 (below) added an in-app version/build label. Phase 2 calibration
-(grey-patch RGB, dot-centre coordinates, reference-patch crop position for
-the *current* production 3×2/6-dot model) is still print-and-measure
-estimates, not verified against a physical plate. Separately, an unfinished,
-not-yet-wired-in content-based detector (`PlateDetectorService`, 8×3/24-well
-model) exists in the tree — see Session 2 and `agentrunbook.md`'s "Domain
-constants" section. Phase 3 (error-state UX) and Phase 4 (device QA) haven't
-started. See `PROGRESS.md` for the full phase checklist.
-
-**Files in flight:** A substantial, **uncommitted** set of changes predates
-Session 4 and was deliberately left untouched by it (see Session 4's entry —
-it only committed the version-label files). As of Session 4's commit, `git
-status` still shows uncommitted: `.gitignore`, `CLAUDE.md`,
-`analysis_options.yaml`, `app_constants.dart`, `analysis_exception.dart`,
-`analysis_screen.dart`, `analysis_provider.dart`, `result_calculator.dart`,
-`lighting_indicator.dart`, `camera_provider.dart`, `dot_grid_display.dart`,
-`dot_reading.dart` (all modified), plus `colour_correction_service.dart` and
-`dot_detector_service.dart` (deleted) and `plate_detector_service.dart` +
-`test/plate_detector_test.dart` + `tool/validate_detector.dart` (untracked,
-new). This looks like the `PlateDetectorService` migration described in
-Session 2/`agentrunbook.md` progressing further (old detector services
-deleted, new one being wired in) — **but it wasn't authored or verified by
-Session 4, so don't assume it's finished or tested.** Whoever picks this back
-up should diff it carefully before committing.
+**State right now:** The `PlateDetectorService` content-based migration
+(3×3 grid, described as "mid-flight" in earlier sessions) is now **committed
+and live** — `analysis_provider.dart` calls it, the old
+`colour_correction_service.dart`/`dot_detector_service.dart` are deleted, and
+`test/plate_detector_test.dart` + `tool/validate_detector.dart` validate it
+against the gold set. Session 5 (below) went further and changed the
+*classification scheme* on top of that detector: `ResultCalculator` now
+reads the 3×3 grid as **Row 1 = positive control, Row 2 = negative control,
+Row 3 = sample**, deriving an adaptive reactive threshold from the two
+control rows each shot instead of using the fixed global
+`AppConstants.saturationThreshold`. See `agentrunbook.md`'s "Domain
+constants" section for the full detail and a footgun about the gold set's
+outdated ground-truth labels. Phase 3 (error-state UX) and Phase 4 (device
+QA) haven't started. See `PROGRESS.md` for the full phase checklist.
 
 **Open threads** (carried forward until resolved):
+- The gold research set (`DR005/008/009/010`) was shot under the *old*
+  single-test-line plate design and does not physically represent the new
+  control-row scheme (their row 3 never developed). Reshoot a gold set on
+  the new control-row plate design to get real end-to-end outcome coverage
+  back — current tests only assert what's still true of the old photos
+  (positive-control row reads reactive).
 - Camera preview fix, torch flicker fix, and torch-off-after-capture fix
   (Session 1) were checked with `flutter analyze` only — still **not**
   verified on a real device/emulator. Needs a physical/emulated camera to
   confirm behavior.
-- Phase 2 calibration for the *production* detector (dot centres, reference
-  patch position, grey-patch RGB) still needs a real printed colour strip +
-  real plate photo — see `PROGRESS.md` 2a–2f.
-- `PlateDetectorService` (content-based, 8×3/24-well model) is unfinished
-  R&D, now apparently mid-migration into the production pipeline (see "Files
-  in flight" above) by a concurrent session/tool not yet identified. Someone
-  needs to review that diff, decide whether it's ready, and commit or revert
-  it deliberately — don't let it sit uncommitted indefinitely.
+- Phase 2 calibration constants that are still print-and-measure estimates
+  (grey-patch RGB, reference-patch geometry) predate the content-based
+  detector and may no longer be load-bearing now that `PlateDetectorService`
+  locates everything from the image content — worth auditing whether
+  `PROGRESS.md` Phase 2a–2f still describes the real calibration surface.
 
-**Next step:** Someone needs to review and either commit or revert the
-uncommitted `PlateDetectorService`-migration changes described above — run
-`dart run tool/validate_detector.dart` first to see current accuracy against
-the gold annotated set. Separately, manually verify Session 1's
-camera/torch/error-tip fixes on a device or emulator (see the four checks
-listed in Session 1's entry below — none of them are confirmed working yet,
-only statically analyzed).
+**Next step:** Reshoot/annotate a gold set on the new control-row plate
+design so `ResultCalculator`'s outcome logic (not just its detection
+geometry) has real photo coverage again. Separately, manually verify Session
+1's camera/torch/error-tip fixes on a device or emulator (see the four
+checks listed in Session 1's entry below — none of them are confirmed
+working yet, only statically analyzed) — and test the new control-row
+scheme end-to-end with a real capture through the app, since this session's
+photo evidence was a chat screenshot, not a file this session could run
+through `tool/validate_detector.dart` directly.
 
 ---
 
 ## Session Log (newest first)
+
+### 2026-07-11 — Session 5 — Control-row (positive/negative/sample) classification scheme — Claude Code / Sonnet 5
+
+**Goal this session:** User reported a hand-made "emulated positive" test
+plate (visibly yellow wells in rows 1 and 3, clear row 2) reading as
+NEGATIVE in the app, and described a design change already in progress:
+Row 1 = positive control, Row 2 = negative control, Row 3 = the actual
+sample to be judged — not the old "Row 1 is directly the test line" model.
+
+**Diagnosis:** Two independent causes, both confirmed from the result
+screen's own displayed saturations (7–14% on every well, including visibly
+yellow ones): (1) `AppConstants.saturationThreshold` (0.25, fixed/global) is
+well above what this plate's wells actually read — a known open issue
+already flagged in project memory (`DR010` faint-positive gold sample reads
+the same way). (2) `ResultCalculator` didn't implement the new plan at all —
+it only ever inspected Row 1 against the fixed threshold; Rows 2/3 were
+sampled and displayed but never entered the decision.
+
+**Changed:**
+- [lib/features/analysis/services/result_calculator.dart](lib/features/analysis/services/result_calculator.dart) —
+  rewrote to the control-row scheme: `posAnchor`/`negAnchor` = average
+  saturation of Row 1 / Row 2; reactive threshold =
+  `negAnchor + 0.35 * (posAnchor - negAnchor)` (`_thresholdFraction`); Row 3
+  wells are classified against that threshold (plus the existing hue gate).
+  Added a `_minControlSeparation` (0.08) validity gate — if the two controls
+  don't differentiate by at least that much, the result is `Invalid` rather
+  than a confidently-wrong Positive/Negative. `AnalysisResult` gained
+  `reactiveDotIds` (the per-analysis calibrated reactive set, spanning all
+  three rows) so the UI doesn't need to re-derive anchors itself.
+- [lib/features/result/presentation/widgets/dot_grid_display.dart](lib/features/result/presentation/widgets/dot_grid_display.dart) —
+  row labels now read "Positive control" / "Negative control" / "Sample";
+  well colouring uses the passed-in `reactiveDotIds` instead of
+  `DotReading.isReactive` (which still exists, still fixed-threshold, but is
+  no longer what production classification uses).
+- [lib/features/result/presentation/result_screen.dart](lib/features/result/presentation/result_screen.dart) —
+  recomputes `reactiveDotIds` via `ResultCalculator().calculate(...)` on
+  display rather than persisting it, so history entries colour correctly
+  too without a Hive schema/migration change.
+- [test/plate_detector_test.dart](test/plate_detector_test.dart) — the
+  `'classifies the clear positives as POSITIVE'` test asserted the *old*
+  scheme's outcome on the gold photos; replaced it with an assertion that's
+  still physically true of those photos under the new scheme (positive-
+  control row reads reactive) — see "Learned" below for why the old
+  assertion had to go, not just be patched.
+- `CLAUDE.md`, `agentrunbook.md`, `TODO.md` updated to describe the 3×3
+  grid / control-row scheme instead of the stale 3×2 single-line model.
+
+**Learned:**
+- The gold research photos (`DR005/008/009/010`) were shot under the *old*
+  single-test-line design, where rows 2–3 are just filler negatives, not a
+  negative-control/sample pair. Under the new scheme their Row 3 correctly
+  reads NEGATIVE (it never developed in those shots) even though the
+  annotation JSON says `ground-truth: POSITIVE` — that's an expected
+  consequence of the redesign, not a regression. Don't try to "fix" it by
+  loosening thresholds; the gold set itself needs reshooting on the new
+  plate design for real outcome-level coverage.
+- Couldn't run the user's actual attached photo through
+  `tool/validate_detector.dart` — it arrived as an inline chat image, not a
+  file this session had filesystem access to. Diagnosis relied on the
+  saturation numbers already visible on the result screen (which come from
+  real `PlateDetectorService` sampling) rather than re-running detection.
+  If detection geometry (not just thresholding) turns out to also be
+  slightly off on the user's specific plate print, that would only show up
+  by saving a real capture into `assets/research/samples/` and running the
+  validator — worth doing before trusting this fix fully in the field.
+
+**State at end of session:** `flutter analyze` clean (same pre-existing
+`deprecated_member_use` info as before). `flutter test` passes 7/7
+(`plate_detector_test.dart` 5/5, `widget_test.dart` 2/2). Not yet verified
+on-device — no camera-capture flow was exercised this session, only the
+pure-Dart classification logic and the gold-photo regression tests.
 
 ### 2026-07-11 — Session 4 — In-app version/build label — Claude Code / Sonnet 5
 

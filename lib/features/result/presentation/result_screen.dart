@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/test_result.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../analysis/services/result_calculator.dart';
 import '../../history/providers/history_provider.dart';
 import 'widgets/result_card.dart';
 import 'widgets/dot_grid_display.dart';
@@ -88,7 +89,15 @@ class ResultScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               ConfidenceIndicator(confidence: current.confidence),
               const SizedBox(height: 24),
-              DotGridDisplay(readings: current.dotReadings),
+              DotGridDisplay(
+                readings: current.dotReadings,
+                // Recomputed rather than persisted: it's a pure function of
+                // the stored readings, so this stays correct for history
+                // entries too without a Hive schema change.
+                reactiveDotIds: ResultCalculator()
+                    .calculate(current.dotReadings)
+                    .reactiveDotIds,
+              ),
               if (current.isFlagged) ...[
                 const SizedBox(height: 16),
                 Container(

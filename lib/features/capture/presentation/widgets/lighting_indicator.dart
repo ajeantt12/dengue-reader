@@ -18,11 +18,16 @@ class LightingIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final level = _level;
 
-    final (icon, color, label) = switch (level) {
-      LightLevel.tooDataark => (Icons.brightness_2, Colors.red, 'Too dark — flash enabled'),
-      LightLevel.dim => (Icons.brightness_3, Colors.orange, 'Low light — hold steady'),
-      LightLevel.good => (Icons.brightness_5, Colors.greenAccent, 'Good lighting'),
-      LightLevel.bright => (Icons.brightness_7, Colors.amber, 'Very bright — avoid glare'),
+    final (icon, color, label, subtitle) = switch (level) {
+      LightLevel.tooDataark => (Icons.brightness_2, Colors.red, 'Too dark — flash enabled', null),
+      LightLevel.dim => (Icons.brightness_3, Colors.orange, 'Low light — hold steady', null),
+      LightLevel.good => (Icons.brightness_5, Colors.greenAccent, 'Good lighting', null),
+      LightLevel.bright => (
+          Icons.brightness_7,
+          Colors.amber,
+          'Very bright — avoid glare',
+          'Avoid direct sunlight · Try without flash',
+        ),
     };
 
     return AnimatedContainer(
@@ -37,13 +42,28 @@ class LightingIndicator extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.85),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+            ],
           ),
         ],
       ),

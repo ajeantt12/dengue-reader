@@ -1,13 +1,12 @@
 class AppConstants {
-  // Hysteresis band for auto-torch: torch turns ON below the low threshold
-  // and OFF above the high threshold. The gap prevents the flash from
-  // glaring the scene bright enough to immediately switch itself off again
-  // (which previously caused a rapid on/off flicker loop).
+  // Auto-torch turns ON below this ambient brightness. There is no auto-OFF
+  // threshold: the torch's own light overwhelms the brightness reading, so
+  // auto-switching off based on that same signal caused an endless on/off
+  // strobe. Once auto-torch turns it on, only a manual toggle turns it off.
   static const double torchOnThreshold = 0.18;
-  static const double torchOffThreshold = 0.40;
 
-  // Minimum time between automatic torch switches, as a second safeguard
-  // against flicker from transient brightness spikes (e.g. glare).
+  // Minimum time before auto-torch is allowed to fire, as a guard against
+  // reacting to transient brightness dips right after the stream starts.
   static const Duration torchSwitchCooldown = Duration(milliseconds: 1200);
   static const int countdownSeconds = 3;
 
@@ -17,20 +16,18 @@ class AppConstants {
   static const double referencePatchSize = 0.08;
   static const List<int> referenceKnownRgb = [200, 200, 200];
 
-  static const double saturationThreshold = 0.35;
+  // A well is reactive (a developed reagent dot) when its colour-corrected
+  // hue sits in the yellow band AND its saturation clears the threshold.
+  // The hue gate matters: clear/negative wells pick up a faint blue-grey cast
+  // after white balance, so hue alone separates them from faint yellows.
+  static const double saturationThreshold = 0.25;
+  static const double reactiveHueMin = 40;
+  static const double reactiveHueMax = 80;
 
-  // 3-row × 2-col dot grid (normalized x,y centre positions, radius in px)
-  // Plate occupies centre 60% of the captured image horizontally and ~70% vertically.
-  // Origin (0,0) is top-left of the full image.
-  // Row 1 = top row (control), Row 2 = IgM, Row 3 = IgG
-  static const double dotRadius = 18.0;
-
-  static const Map<String, List<double>> dotCentres = {
-    'R1C1': [0.37, 0.30],
-    'R1C2': [0.63, 0.30],
-    'R2C1': [0.37, 0.50],
-    'R2C2': [0.63, 0.50],
-    'R3C1': [0.37, 0.70],
-    'R3C2': [0.63, 0.70],
-  };
+  // Visible well grid on a close-up capture: 3 rows × 3 columns. The top row is
+  // the reactive (test) line — a positive plate develops it yellow. See
+  // assets/research/CALIBRATION.md. Well positions are no longer hard-coded:
+  // PlateDetectorService locates the wells by scanning the whole bright frame.
+  static const int gridRows = 3;
+  static const int gridCols = 3;
 }

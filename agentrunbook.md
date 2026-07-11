@@ -111,22 +111,41 @@ there's no automated test that would catch a bad dot-centre coordinate. If
 asked to "fix" a detection bug, check whether it's a code bug or a
 calibration-data problem before changing constants.
 
-**A domain-model migration is mid-flight and not yet wired in.**
+**The content-based detector migration is now wired in — CLAUDE.md is stale
+on this point, trust this file and the code.**
 [lib/features/analysis/services/plate_detector_service.dart](lib/features/analysis/services/plate_detector_service.dart)
-implements a *content-based* detector (locates the plate via its printed
-CMYK colour strip, projects an 8×3/24-well grid via an affine transform)
-that is a different, newer model than the fixed-position 3×2/6-dot single-
-grey-patch model `CLAUDE.md` and `app_constants.dart` currently describe.
-As of this writing it is **not imported by any other file in `lib/`** — it's
-standalone R&D, validated only via `tool/validate_detector.dart` against the
-annotated images in `assets/research/samples/`. See
-[assets/research/CALIBRATION.md](assets/research/CALIBRATION.md) for the
-full design rationale; its own migration note states the
-`app_constants.dart` rewrite to the new grid is "a separate, deliberate
-step," deferred on purpose. Don't assume `PlateDetectorService` is live in
-the app, and don't casually merge the two models — check
-`analysis_provider.dart` to see which detector is actually wired in before
-changing either one.
+(locates the plate via its printed CMYK colour strip, projects a 3×3-well
+grid via an affine/reactive-row layout) replaced the old fixed-position
+`dot_detector_service.dart`/`colour_correction_service.dart` (deleted) and is
+what `analysis_provider.dart` actually calls. `CLAUDE.md`'s "3-row × 2-col"
+grid description is out of date — the live grid is 3×3, per
+`AppConstants.gridRows/gridCols`.
+
+**Row roles changed again on top of that (this session) — old gold-photo
+tests do NOT validate current outcome semantics.**
+[lib/features/analysis/services/result_calculator.dart](lib/features/analysis/services/result_calculator.dart)
+no longer treats row 1 as "the" reactive test line. It now reads the grid as
+an on-plate calibration: **row 1 = positive control** (anchors "fully
+reactive"), **row 2 = negative control** (anchors "background"), **row 3 =
+sample** (judged against those two anchors via `_thresholdFraction`, not the
+fixed `AppConstants.saturationThreshold`). `DotReading.isReactive` (the old
+fixed-threshold getter) still exists and is still exercised by some tests,
+but it is **no longer what production classification uses** — that's
+`ResultCalculator.calculate(...).reactiveDotIds`, computed fresh from
+whatever anchors that specific image's controls produce.
+
+Gotcha: the gold research photos (`DR005`/`DR008`/`DR009`/`DR010` in
+`assets/research/samples/`) were shot and annotated under the *old*
+single-test-line design — their row 3 never developed, because in that
+design row 3 was just a filler negative, not a sample well. Under the new
+control-row scheme they correctly classify as NEGATIVE even though their
+annotation says `ground-truth: POSITIVE` (see `tool/validate_detector.dart`
+output) — that mismatch is expected, not a regression, until the gold set is
+reshot on the new control-row plate design. `test/plate_detector_test.dart`
+was updated to only assert what's still physically true of those photos
+(the positive-control row itself reads reactive), not the overall outcome.
+Don't "fix" that mismatch by loosening the threshold — reshoot the gold set
+on the new plate design instead.
 
 ## Testing / verification
 
