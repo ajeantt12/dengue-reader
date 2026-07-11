@@ -171,6 +171,19 @@ observe.
   chrome` fails outright ("This application is not configured to build on
   the web"). Verify UI changes on Android/Windows/macOS, not via a browser
   preview flow.
+- **`flutter install` does not reliably rebuild before installing.** It can
+  silently reinstall a stale APK already sitting in
+  `build/app/outputs/flutter-apk/` instead of recompiling your latest source
+  changes — with no warning, and a suspiciously fast "Installing..." step
+  (~7s) instead of a real release build (~4-5 min) is the tell. Confirmed
+  this session: two consecutive `flutter install` calls after real source
+  edits both silently reused a 70+ minute-old APK, so the device kept
+  running old UI/logic while every visible signal (command output, exit
+  code) looked like a normal successful install. Before trusting an on-device
+  check, run `flutter clean && flutter build apk --release` explicitly, then
+  `adb install -r build/app/outputs/flutter-apk/app-release.apk` (or `flutter
+  install`) — and sanity-check the APK's mtime against your last edit's mtime
+  if anything looks off.
 - **Widget tests must wrap the app in `ProviderScope`.** `DengueReaderApp` is
   a `ConsumerWidget` — pumping it bare throws `StateError: No ProviderScope
   found`. `test/widget_test.dart` had this bug for both of its tests until
@@ -188,17 +201,15 @@ observe.
 
 ## In-app version label (build_info.dart)
 
-[lib/core/constants/build_info.dart](lib/core/constants/build_info.dart) is
-a **generated file** (see its own header comment) — regenerate it with `dart
-run tool/gen_build_info.dart` rather than hand-editing it. It holds the git
-short commit hash + a dirty-tree flag, shown in the home screen's app bar via
-[lib/shared/widgets/app_version_label.dart](lib/shared/widgets/app_version_label.dart)
-alongside the pubspec version (read at runtime via `package_info_plus`). A
-pre-commit hook reminds you to regenerate it before a device test, but can't
-regenerate it *for* the commit being made — a pre-commit hook only ever sees
-the parent commit's hash, so this label is always accurate to "roughly which
-commit," not bit-exact with its own commit. That's an accepted limitation,
-not a bug to fix.
+**Current convention (2026-07-11):**
+[lib/core/constants/build_info.dart](lib/core/constants/build_info.dart)
+reads the `GIT_COMMIT` compile-time value; it is normal tracked source, not a
+generated file. Build a device/release APK with the exact commit after it
+exists, for example `flutter build apk --release
+--dart-define=GIT_COMMIT=<short-hash>`. Without that argument, local/debug
+builds deliberately display `Build development` rather than a misleading
+commit hash. Do not reintroduce a source file stamped before commit time:
+Git cannot know a commit's hash until the commit has been created.
 
 ## Conventions (see also CLAUDE.md)
 

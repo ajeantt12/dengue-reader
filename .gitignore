@@ -57,3 +57,4 @@ claude-init-plan.md
 touch
 mkdir
 flutter_*.log
+.claude/settings.local.json

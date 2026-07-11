@@ -24,6 +24,11 @@ class CaptureScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        // Default toolbarHeight (56) is sized for a single-line title; the
+        // two-line title+version-label Column below needs more room or the
+        // version label gets clipped out entirely with no visible overflow
+        // warning in release builds.
+        toolbarHeight: kToolbarHeight + 16,
         title: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [

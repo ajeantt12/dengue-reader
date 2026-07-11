@@ -1,9 +1,10 @@
-// GENERATED FILE — do not edit by hand.
-// Regenerate with: dart run tool/gen_build_info.dart
+// Build metadata supplied when Flutter compiles the app.
 //
-// Captures the Git commit checked out at generation time, so a running app
-// build can be matched back to the source commit it came from.
+// For a release build, pass the checked-out commit explicitly:
+// flutter build apk --release --dart-define=GIT_COMMIT=<short-hash>
 class BuildInfo {
-  static const String commitHash = '8f76bc6';
-  static const String generatedAt = '2026-07-11T10:04:41.677107Z';
+  static const String commitHash = String.fromEnvironment(
+    'GIT_COMMIT',
+    defaultValue: 'development',
+  );
 }

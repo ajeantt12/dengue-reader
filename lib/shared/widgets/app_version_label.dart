@@ -11,7 +11,7 @@ class AppVersionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      'Commit ${BuildInfo.commitHash}',
+      'Build ${BuildInfo.commitHash}',
       style: style ?? const TextStyle(fontSize: 11, color: Colors.black54),
     );
   }

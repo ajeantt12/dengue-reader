@@ -86,6 +86,13 @@ only reasoned from the screenshot's displayed numbers). The in-app
 screenshots showing `NEGATIVE` all predate this fix (stale installed
 build — see Session 6) and must not be used to judge the current code.
 
+**Build metadata (2026-07-11, Session 8/Codex):** The old generated
+`build_info.dart` approach could only stamp the parent commit, so a clean
+checkout could display an incorrect commit label. It has been replaced with
+the `GIT_COMMIT` Flutter compile-time value. Release/device builds must pass
+`--dart-define=GIT_COMMIT=<short-hash>` after committing; normal local builds
+show `Build development` explicitly rather than claim the wrong commit.
+
 **Open threads** (carried forward until resolved):
 - Neither concurrent session has yet visually confirmed the result screen
   on-device via Demo Mode with the final combined logic — Session 6's
@@ -119,7 +126,8 @@ build — see Session 6) and must not be used to judge the current code.
   update sent to the research team) — not started, not scoped yet.
 
 **Next step:** Confirm the result screen visually on-device via Demo Mode
-(a fresh `flutter clean && flutter build apk --release` + adb install, then
+(a fresh `flutter clean && flutter build apk --release
+--dart-define=GIT_COMMIT=<short-hash>` + adb install, then
 tap through Demo Mode — don't reuse a `flutter install`-only build). Reshoot/
 annotate a gold set on the new control-row plate design so outcome logic
 (not just detection geometry) has real photo coverage in the automated
@@ -129,6 +137,35 @@ on a device (still only statically analyzed, never device-confirmed).
 ---
 
 ## Session Log (newest first)
+
+### 2026-07-11 - Session 8 - Exact build metadata and commit hygiene - Codex / GPT-5
+
+**Goal this session:** Review the other chat's attempted build-label fix,
+resolve the remaining clean-checkout mismatch, and prepare the current work
+for a final GitHub commit.
+
+**Diagnosis:** Regenerating `build_info.dart` after `e3beb97` made the local
+tree display that commit, but did not change the committed file, which still
+displayed its parent (`8f76bc6`) in a clean checkout. A commit cannot contain
+its own precomputed hash because the file content itself changes that hash.
+
+**Changed:** Replaced generated source metadata with Flutter's
+`GIT_COMMIT` compile-time value, removed the obsolete generator and unused
+`package_info_plus` dependency, updated the hook/runbook, and cleaned the
+outstanding TODO whitespace. The untracked repository instructions are being
+included; the machine-local `.claude/settings.local.json` is now ignored.
+
+**Verification:** `flutter pub get` completed after removing the unused
+dependency; `flutter test` passes 9/9. `flutter analyze` reports only the
+existing generated-router `AutoDisposeProviderRef` deprecation info.
+
+**Learned:** Embed a commit identifier at build time, after the target commit
+exists. A source file generated before the commit can never reliably identify
+that same commit.
+
+**Failed attempts:** None.
+
+**State at end of session:** Ready for final commit and push.
 
 ### 2026-07-11 - Session 7 - Weak-control positive evidence fix - Codex / GPT-5
 
@@ -470,67 +507,14 @@ that session before assuming its current shape is final.
 
 ---
 
-### 2026-07-11 — Session 1 — Camera capture UX fixes — Claude Code / Sonnet 5
+## Earlier history
 
-**Goal this session:** Fix bugs found in the capture flow: distorted camera
-preview, torch flicker, torch staying on after capture, and unhelpfully
-terse error messages.
-
-**Changed:**
-1. **Camera preview distortion fix** — `_CoverCameraPreview` in
-   `capture_screen.dart` previously used `Transform.scale` sized off
-   `controller.value.aspectRatio` fed into `AspectRatio`. On devices like the
-   Pixel 7a this produced a short, wide, letterboxed preview. Root cause:
-   `CameraController.value.previewSize` is always reported in the sensor's
-   native **landscape** orientation (width > height) regardless of device
-   orientation. Fix: read `previewSize`, swap width/height, let
-   `FittedBox(fit: BoxFit.cover)` inside `OverflowBox` do the scaling instead
-   of a manual `Transform.scale` factor.
-2. **Torch flicker fix** — `_autoTorch` had a hysteresis band
-   (`torchOnThreshold` 0.18 / `torchOffThreshold` 0.40) plus a switch
-   cooldown, but still flickered. Root cause: the torch's own light
-   overwhelms the brightness sample the heuristic reads, so *any* auto-off
-   rule driven by that same signal creates a feedback loop (torch on → frame
-   reads bright → torch off → frame reads dark → torch on → …). Fix: removed
-   `torchOffThreshold` and all auto-off logic. Auto-torch now only ever turns
-   the torch **on**; turning off requires a manual `TorchMode` cycle.
-3. **Torch left on after capture** — `captureImage()` stopped the stream and
-   took the picture but never touched the torch. `CameraControllerNotifier`
-   isn't disposed when navigating to the analysis screen (camera route stays
-   underneath in the go_router stack), so the torch stayed lit — pointed at
-   nothing — for as long as the user was on the analysis/result screen. Fix:
-   `captureImage()` now calls `_setTorch(false)` after `takePicture()`,
-   without touching `_torchMode`.
-4. **Structured error tips** — error strings previously embedded advice via
-   hardcoded `\n` inside `userMessage` (e.g. `'Image is too
-   dark.\nMove to a brighter area or enable flash.'`). Refactored into a
-   `tips: List<String>` field on `DengueAnalysisException`, rendered by
-   `analysis_screen.dart` as a bulleted card.
-5. **Bright-light tip surfaced earlier** — `LightingIndicator` (shown live
-   during framing) now shows `'Avoid direct sunlight · Try without flash'`
-   when brightness crosses into `LightLevel.bright`, pre-empting the
-   post-capture `ImageOverexposedException` message.
-
-**Learned** (promoted to [agentrunbook.md](agentrunbook.md) — see there for
-the durable version):
-- `previewSize` is landscape-native regardless of device orientation.
-- Auto-torch must be on-only; auto-off on brightness is a guaranteed feedback
-  loop.
-- `CameraControllerNotifier` outlives navigation to the analysis screen.
-
-**Failed attempts:** None tried-and-abandoned this session. Note: the
-*previous* commit (`ea24c77 Fix camera flash flicker and stretched preview;
-add flash toggle`) was an earlier, incomplete attempt at fixes #1 and #2
-above — see the removed hysteresis-band comment in `app_constants.dart`'s
-git history for what that first attempt looked like, in case the new
-approach also turns out incomplete.
-
-**State at end of session:** All 5 fixes made, none committed, none verified
-on-device. `git diff --stat`: 6 files changed, 137 insertions, 54 deletions.
-
-**Also this session:** Set up cross-tool project memory — created this
-journal structure for `handoff.md`, created
-[agentrunbook.md](agentrunbook.md) (durable technical rules/footguns, as
-opposed to this file's session narrative), added a `.githooks/pre-commit`
-reminder (non-blocking) for commits that don't touch either file, and
-pointed to both from [CLAUDE.md](CLAUDE.md).
+- **Session 1** (2026-07-11, Claude Code/Sonnet 5): Fixed camera preview
+  distortion (`previewSize` is landscape-native regardless of device
+  orientation), torch auto-off flicker (removed auto-off entirely — the
+  torch's own light overwhelms the brightness heuristic, so any auto-off
+  rule is a guaranteed feedback loop), torch staying on after capture, and
+  replaced hardcoded `\n`-joined error advice with a structured `tips: []`
+  field on `DengueAnalysisException`. Also set up this journal, created
+  `agentrunbook.md`, and added the `.githooks/pre-commit` reminder. See
+  `git log` around this era for the diff-level detail.

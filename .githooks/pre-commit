@@ -17,16 +17,8 @@ if [ -z "$has_handoff" ] || [ -z "$has_runbook" ]; then
   echo ""
 fi
 
-# lib/core/constants/build_info.dart (in-app version/commit label, see
-# tool/gen_build_info.dart) records the git commit as of *last regeneration*
-# — a pre-commit hook can't stamp its own commit's hash, so it will always
-# lag one commit here. That's fine for its purpose (matching a device build
-# back to roughly the right commit); just remind to regenerate before
-# building for a real device test rather than trying to keep it exact here.
-if ! echo "$staged" | grep -qx "lib/core/constants/build_info.dart"; then
-  echo "reminder: run 'dart run tool/gen_build_info.dart' before building for a device test"
-  echo "  so the in-app version label matches this commit."
-  echo ""
-fi
+# The build label is passed at compile time, after the target commit exists.
+# Keep it exact for a device test or release with:
+# flutter build apk --release --dart-define=GIT_COMMIT=<short-hash>
 
 exit 0
