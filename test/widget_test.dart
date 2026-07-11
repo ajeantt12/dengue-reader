@@ -19,7 +19,7 @@ void main() {
     );
   });
 
-  testWidgets('Home screen shows the git commit version label',
+  testWidgets('Home screen shows the GitHub commit label',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -31,6 +31,6 @@ void main() {
     await tester.pump();
 
     expect(find.byType(AppVersionLabel), findsOneWidget);
-    expect(find.textContaining(BuildInfo.gitCommit), findsOneWidget);
+    expect(find.textContaining(BuildInfo.commitHash), findsOneWidget);
   });
 }
