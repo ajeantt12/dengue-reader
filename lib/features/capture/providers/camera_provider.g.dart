@@ -7,7 +7,7 @@ part of 'camera_provider.dart';
 // **************************************************************************
 
 String _$cameraControllerNotifierHash() =>
-    r'1e68701894ec7f386a94a60b0887de1a16833d76';
+    r'1070ec212d6cf380c48979ccfdb3f216b8c4b876';
 
 /// See also [CameraControllerNotifier].
 @ProviderFor(CameraControllerNotifier)

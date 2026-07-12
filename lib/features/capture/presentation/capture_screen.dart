@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../features/settings/models/app_settings.dart';
+import '../../../features/settings/providers/settings_provider.dart';
 import '../../../shared/widgets/app_version_label.dart';
 import '../providers/camera_provider.dart';
 import '../services/demo_service.dart';
@@ -74,7 +76,11 @@ class CaptureScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
+              // Plate layout: wells per row (columns). Set before capture so
+              // the detector projects the right grid width.
+              const _WellsPerRowSelector(),
+              const SizedBox(height: 24),
               Text(
                 'How would you like to add the test plate image?',
                 style: Theme.of(context).textTheme.bodyLarge,
@@ -329,6 +335,75 @@ class _DemoTile extends StatelessWidget {
   }
 }
 
+/// Home-screen stepper for the plate's wells-per-row (column count). Persists
+/// straight to the settings box; the analysis screen reads it at capture time.
+class _WellsPerRowSelector extends ConsumerWidget {
+  const _WellsPerRowSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wells = ref.watch(settingsProvider.select((s) => s.wellsPerRow));
+    final notifier = ref.read(settingsProvider.notifier);
+    final canDecrease = wells > AppSettings.minWellsPerRow;
+    final canIncrease = wells < AppSettings.maxWellsPerRow;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.secondary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.grid_on_rounded, color: AppColors.secondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Wells per row',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Columns on this plate design',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.black54)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline),
+            color: AppColors.secondary,
+            tooltip: 'Fewer wells per row',
+            onPressed:
+                canDecrease ? () => notifier.setWellsPerRow(wells - 1) : null,
+          ),
+          SizedBox(
+            width: 24,
+            child: Text('$wells',
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            color: AppColors.secondary,
+            tooltip: 'More wells per row',
+            onPressed:
+                canIncrease ? () => notifier.setWellsPerRow(wells + 1) : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Camera viewfinder screen ────────────────────────────────────────────────
 
 /// Renders [CameraPreview] scaled to fill its parent (cover), preserving the
@@ -415,6 +490,11 @@ class _CameraViewfinderScreenState
   }
 
   void _startCapture() {
+    // Skip the countdown entirely when the user has turned the timer off.
+    if (!ref.read(settingsProvider).useCountdown) {
+      _takePicture();
+      return;
+    }
     setState(() => _countdown = 3);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       HapticFeedback.mediumImpact();
@@ -518,6 +598,27 @@ class _CameraViewfinderScreenState
                   ),
                   tooltip: 'Flash: ${_torchMode.name}',
                   onPressed: _cycleTorchMode,
+                ),
+              ),
+              // Countdown-timer toggle
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                right: 56,
+                child: IconButton(
+                  icon: Icon(
+                    ref.watch(settingsProvider).useCountdown
+                        ? Icons.timer
+                        : Icons.timer_off,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  tooltip: ref.watch(settingsProvider).useCountdown
+                      ? 'Timer: on (3s)'
+                      : 'Timer: off',
+                  onPressed: () {
+                    final on = ref.read(settingsProvider).useCountdown;
+                    ref.read(settingsProvider.notifier).setUseCountdown(!on);
+                  },
                 ),
               ),
               // Capture button

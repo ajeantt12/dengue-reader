@@ -40,9 +40,17 @@ class PlateDetectorService {
   };
 
   static const int gridRows = 3;
-  static const int gridCols = 3;
 
-  PlateDetectionResult analyse(img.Image raw, {bool assertQuality = true}) {
+  /// Default columns (wells per row). Rows are fixed at three (positive
+  /// control, negative control, sample); only the column count varies between
+  /// plate designs, so the caller passes it in via [analyse]'s `gridCols`.
+  static const int defaultGridCols = 3;
+
+  PlateDetectionResult analyse(
+    img.Image raw, {
+    bool assertQuality = true,
+    int gridCols = defaultGridCols,
+  }) {
     final work = _toWorking(raw);
     final W = work.width, H = work.height;
     final workScale = W / raw.width;
@@ -161,7 +169,7 @@ class PlateDetectorService {
     // is visible we anchor the grid directly on those yellow wells and step
     // down by the plate's row pitch; otherwise we fall back to the strip map.
     final List<List<double>> wellCentresWork =
-        _layOutWells(reactiveRow, stripRowY, map);
+        _layOutWells(reactiveRow, stripRowY, map, gridCols);
 
     // --- 7. Sample each well on the (white-balanced) working image ---
     final readings = <DotReading>[];
@@ -210,7 +218,7 @@ class PlateDetectorService {
   /// three detected reactive-line wells (robust to the loose strip); otherwise
   /// projects the canonical grid through the strip [map].
   List<List<double>> _layOutWells(
-      List<_Blob> reactiveRow, double stripRowY, _PlaneMap? map) {
+      List<_Blob> reactiveRow, double stripRowY, _PlaneMap? map, int gridCols) {
     if (reactiveRow.length == gridCols) {
       final p0 = [reactiveRow[0].cx, reactiveRow[0].cy];
       final pLast = [reactiveRow[gridCols - 1].cx, reactiveRow[gridCols - 1].cy];

@@ -70,9 +70,13 @@ class ResultCalculator {
       );
     }
 
-    final posControl = readings.where((d) => d.dotId.startsWith('R1')).toList();
-    final negControl = readings.where((d) => d.dotId.startsWith('R2')).toList();
-    final sample = readings.where((d) => d.dotId.startsWith('R3')).toList();
+    // Row roles by index: row 1 positive control, row 2 negative control,
+    // every row from 3 down is sample. Parsing the row number (rather than a
+    // `startsWith('R3')` prefix) keeps this correct if a plate ever carries
+    // more than one sample row.
+    final posControl = readings.where((d) => _rowOf(d.dotId) == 1).toList();
+    final negControl = readings.where((d) => _rowOf(d.dotId) == 2).toList();
+    final sample = readings.where((d) => _rowOf(d.dotId) >= 3).toList();
 
     if (posControl.isEmpty || negControl.isEmpty || sample.isEmpty) {
       // Rows can't be told apart — no control wells to calibrate against.
@@ -158,4 +162,10 @@ class ResultCalculator {
 
   double _avgSat(List<DotReading> ds) =>
       ds.map((d) => d.saturation).reduce((a, b) => a + b) / ds.length;
+
+  /// Row index parsed from a `R<row>C<col>` dotId, or -1 if it doesn't match.
+  static int _rowOf(String dotId) {
+    final m = RegExp(r'^R(\d+)C\d+$').firstMatch(dotId);
+    return m == null ? -1 : int.parse(m.group(1)!);
+  }
 }

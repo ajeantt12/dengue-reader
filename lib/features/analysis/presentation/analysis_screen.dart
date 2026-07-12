@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/analysis_provider.dart';
 import '../../../shared/models/test_result.dart';
 import '../../../core/exceptions/analysis_exception.dart';
+import '../../settings/providers/settings_provider.dart';
 import 'widgets/processing_animation.dart';
 
 class AnalysisScreen extends ConsumerStatefulWidget {
@@ -19,7 +20,10 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(analysisNotifierProvider.notifier).analyzeImage(widget.imagePath);
+      final wellsPerRow = ref.read(settingsProvider).wellsPerRow;
+      ref
+          .read(analysisNotifierProvider.notifier)
+          .analyzeImage(widget.imagePath, wellsPerRow: wellsPerRow);
     });
   }
 

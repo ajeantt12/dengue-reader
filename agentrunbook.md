@@ -199,6 +199,48 @@ observe.
   Files/Git/sdcard/x.png` by MSYS path conversion. Prefix such commands with
   `MSYS_NO_PATHCONV=1`.
 
+## User settings & variable plate geometry (added 2026-07-12)
+
+- **Preferences live in an *untyped* Hive box named `settings`**, not a
+  `@HiveType` model — see `lib/features/settings/`. It holds `wellsPerRow`
+  (int) and `useCountdown` (bool). Because it stores plain primitives it needs
+  no adapter/typeId and no `build_runner` when you add a key, and it can never
+  collide with the `TestResult`/`DotReading` typeIds. `main.dart` calls
+  `await Hive.openBox(settingsBoxName)` before `runApp`, so
+  `Settings.build()` reads it synchronously via `Hive.box(...)`. **Any test
+  that pumps a screen reading `settingsProvider` (e.g. the home screen, which
+  hosts the wells-per-row stepper) must `Hive.init(tmp)` + `openBox(settingsBoxName)`
+  in `setUpAll`, or the provider throws `HiveError: box not found` and the
+  build failure cascades into a confusing RenderFlex overflow.** `widget_test.dart`
+  does this.
+- **Plate geometry is now 3 rows × *N* columns, where N is user-chosen, not
+  fixed.** Per the user (2026-07-12): keep a single fixed capture overlay/
+  orientation, the CMYK strip is identical across all plates, and only the
+  *wells per row* vary. So `PlateDetectorService.analyse` takes a
+  `gridCols` argument (default `PlateDetectorService.defaultGridCols` = 3);
+  `AppConstants.gridCols` was removed (`gridRows` stays 3). The column count
+  flows: `settingsProvider.wellsPerRow` → `AnalysisScreen` →
+  `analyzeImage(wellsPerRow:)` → `analyse(gridCols:)`. `ResultCalculator`
+  parses the row index and treats **any row ≥ 3 as sample** (was a literal
+  `startsWith('R3')`), so row roles stay pos-control / neg-control / sample
+  regardless of column count. **Only the 3-column path has photo coverage** —
+  the gold set is all 3-column, so non-3 column detection geometry is
+  static-verified only; shoot a real N-column plate before trusting it in the
+  field.
+- **Captures are persisted to `<app documents>/captures/<id><ext>`** by
+  `AnalysisNotifier._persistImage` at analysis time, and `TestResult.imagePath`
+  points there — camera shots otherwise sit in an OS-purgeable temp dir and
+  gallery picks live outside the app. History delete/clear removes these files,
+  but `history_provider._deleteImageFile` **guards with `p.isWithin(capturesDir, path)`
+  so it never deletes a user's original gallery photo** (a pick whose copy
+  failed keeps its original path). Data export (`CsvExportService`) bundles the
+  CSV + every existing capture into a `.zip` via the `archive` package
+  (added as a direct dependency this session).
+- **Hive data survives an APK *update* but not an *uninstall*.** `applicationId`
+  is fixed (`com.denguereader.dengue_reader` in `android/app/build.gradle.kts`),
+  so installing a new APK over the old app keeps the documents-dir boxes and
+  captures. The History screen's ℹ️ dialog states this for the field team.
+
 ## In-app version label (build_info.dart)
 
 **Current convention (2026-07-11):**
@@ -212,6 +254,16 @@ device/release APK with the exact commit after it exists, for example `flutter b
 builds deliberately display `Build development` rather than a misleading
 commit hash. Do not reintroduce a source file stamped before commit time:
 Git cannot know a commit's hash until the commit has been created.
+
+## Release APK naming
+
+Create shareable release APKs with `dart run tool/build_release_apk.dart`.
+It builds with the current short commit as `GIT_COMMIT`, then writes the
+delivery artifact to `apks/dengue-reader-<version>-<short-commit>.apk` (for
+example `dengue-reader-1.0.0-5ddbaf5.apk`). Flutter's generic
+`build/.../app-release.apk` remains an ignored temporary output. Use
+`--reuse-existing` only to name an APK that was just built from
+the same checked-out commit.
 
 ## Conventions (see also CLAUDE.md)
 

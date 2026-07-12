@@ -8,6 +8,29 @@ import 'widgets/test_record_tile.dart';
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
 
+  void _showDataInfo(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('About saved data'),
+        content: const Text(
+          'Saved results and their images stay on this device through app '
+          'updates — installing a newer APK over the existing app keeps all '
+          'your data.\n\n'
+          'Data is only lost if the app is uninstalled first (or its storage '
+          'is cleared). You do not need to export before every update, but '
+          'exporting now and then is a good backup habit.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyState = ref.watch(historyNotifierProvider);
@@ -17,11 +40,16 @@ class HistoryScreen extends ConsumerWidget {
         title: const Text('Test History'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'About saved data',
+            onPressed: () => _showDataInfo(context),
+          ),
           historyState.whenOrNull(
             data: (results) => results.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.ios_share),
-                    tooltip: 'Export CSV',
+                    tooltip: 'Export data + images',
                     onPressed: () => CsvExportService().exportAndShare(results),
                   )
                 : null,

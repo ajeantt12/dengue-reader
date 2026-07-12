@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../shared/models/test_result.dart';
@@ -62,14 +65,32 @@ class CsvExportService {
     return const ListToCsvConverter().convert(rows);
   }
 
+  /// Exports the readings CSV plus every result's captured image, bundled into
+  /// a single zip so the research team gets the images alongside the data.
+  /// Images whose file no longer exists on disk (e.g. old results saved before
+  /// captures were persisted) are simply skipped.
   Future<void> exportAndShare(List<TestResult> results) async {
     final csv = buildCsv(results);
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final fileName = 'dengue_reader_export_$timestamp.csv';
+    final fileName = 'dengue_reader_export_$timestamp.zip';
 
+    final archive = Archive();
+    final csvBytes = utf8.encode(csv);
+    archive.addFile(ArchiveFile('data.csv', csvBytes.length, csvBytes));
+
+    for (final result in results) {
+      final imageFile = File(result.imagePath);
+      if (!await imageFile.exists()) continue;
+      final bytes = await imageFile.readAsBytes();
+      final ext = p.extension(result.imagePath);
+      final entryName = 'images/${result.id}${ext.isEmpty ? '.jpg' : ext}';
+      archive.addFile(ArchiveFile(entryName, bytes.length, bytes));
+    }
+
+    final zipBytes = ZipEncoder().encode(archive);
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/$fileName');
-    await file.writeAsString(csv);
+    await file.writeAsBytes(zipBytes);
 
     await Share.shareXFiles([XFile(file.path)], fileNameOverrides: [fileName]);
   }

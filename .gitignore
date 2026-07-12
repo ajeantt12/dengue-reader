@@ -52,6 +52,7 @@ app.*.map.json
 # Project-specific
 /apks/
 /documents/
+/debug/
 colour_stripesCYMK.pdf
 claude-init-plan.md
 touch

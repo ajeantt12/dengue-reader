@@ -6,7 +6,7 @@ part of 'history_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$historyNotifierHash() => r'850c767b8a8b70543a47be33fad7cd2d11b5f804';
+String _$historyNotifierHash() => r'e5a80458c2baefb7a14d5eabb1c9aca1f0bc0f1d';
 
 /// See also [HistoryNotifier].
 @ProviderFor(HistoryNotifier)

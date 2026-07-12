@@ -94,6 +94,31 @@ the `GIT_COMMIT` Flutter compile-time value. Release/device builds must pass
 show their version plus `Build development` explicitly rather than claim the
 wrong commit.
 
+**Release delivery APKs (2026-07-11, Session 10/Codex):** Use
+`dart run tool/build_release_apk.dart` for every shareable release. It builds
+the current commit and writes an ignored delivery file as
+`apks/dengue-reader-<version>-<short-commit>.apk`; Flutter's generic
+`build/.../app-release.apk` is only a temporary build output.
+
+**Feature work (2026-07-12, Session 11/Claude Code Fable 5):** Implemented the
+queued `TODO.md` asks. (2) Image upload was already present; verified, not
+rebuilt. (6) Pre-capture countdown is now a persisted `useCountdown` toggle
+(timer icon on the camera screen). (3) After a two-round design discussion with
+the user, the decision was: keep a **single fixed overlay/orientation** (no
+auto-rotation), the CMYK strip is identical across plates, and only **wells per
+row (columns)** vary — so a user-picked `wellsPerRow` (home-screen stepper,
+2–6, default 3) is threaded into `PlateDetectorService.analyse(gridCols:)`;
+rows stay fixed at 3 and `ResultCalculator` treats any row ≥ 3 as sample.
+(4) Captures are copied into `<app documents>/captures/<id>` at analysis time
+and export bundles CSV + images into a `.zip` (new `archive` dep). (5) Confirmed
+`applicationId` is fixed, so updates keep data (only uninstall wipes it); added
+a History-screen ℹ️ note saying so. New settings live in an untyped Hive box
+(`lib/features/settings/`), no typeId. `flutter analyze` clean (only the
+pre-existing router deprecation), `flutter test` 9/9. **All static/emulator-free
+only — no device pass this session**; in particular non-3-column detection
+geometry and the camera timer toggle are unverified on hardware. See
+`agentrunbook.md`'s "User settings & variable plate geometry" section.
+
 **Open threads** (carried forward until resolved):
 - Neither concurrent session has yet visually confirmed the result screen
   on-device via Demo Mode with the final combined logic — Session 6's
@@ -121,23 +146,96 @@ wrong commit.
   detector and may no longer be load-bearing now that `PlateDetectorService`
   locates everything from the image content — worth auditing whether
   `PROGRESS.md` Phase 2a–2f still describes the real calibration surface.
-- User has queued several new feature asks in `TODO.md` (image upload
-  alongside camera capture, support for multiple plate/strip orientations,
-  exporting captured images with data, preserving Hive data across an APK
-  update sent to the research team) — not started, not scoped yet.
+- The `TODO.md` feature asks are now implemented (Session 11) but need a
+  **device pass**: verify the wells-per-row stepper + timer toggle on hardware,
+  and — most important — shoot a real **non-3-column plate** to confirm the
+  variable-`gridCols` detection geometry (only the 3-column gold set has photo
+  coverage; other counts are static-verified only).
 
-**Next step:** Confirm the result screen visually on-device via Demo Mode
-(a fresh `flutter clean && flutter build apk --release
---dart-define=GIT_COMMIT=<short-hash>` + adb install, then
-tap through Demo Mode — don't reuse a `flutter install`-only build). Reshoot/
-annotate a gold set on the new control-row plate design so outcome logic
-(not just detection geometry) has real photo coverage in the automated
-suite. Separately, manually verify Session 1's camera/torch/error-tip fixes
-on a device (still only statically analyzed, never device-confirmed).
+**Next step:** Do an on-device pass of the Session 11 features on the Pixel 7a
+(fresh `flutter clean && flutter build apk --release
+--dart-define=GIT_COMMIT=<short-hash>` + adb install — don't reuse a
+`flutter install`-only build): (a) home-screen wells-per-row stepper persists
+and the result grid renders that many columns; (b) camera timer toggle skips
+the countdown; (c) capture an image, confirm it survives an app kill and
+appears in a data export `.zip`. Then shoot a genuine non-3-column plate to
+validate detection geometry. Still-outstanding older items: reshoot a gold set
+on the control-row plate design for outcome coverage, and device-confirm
+Session 1's camera/torch/error-tip fixes.
 
 ---
 
 ## Session Log (newest first)
+
+### 2026-07-12 — Session 11 — TODO feature batch (settings, variable columns, image export) — Claude Code / Fable 5
+
+**Goal this session:** Work `TODO.md` end-to-end. User asked to plan all items,
+discuss #3 first, and ask questions before building.
+
+**Discussion outcome (#3):** Two rounds of questions established: keep a single
+fixed capture overlay/orientation (no rotation-invariance work); the CMYK strip
+is identical across all plates; the real variability is **wells per row
+(columns)**, not rows; and the app should **know the count because the user
+picks it before capture** (not auto-detected). Row roles are always top-down:
+row 1 positive control, row 2 negative control, everything below sample.
+
+**Changed:**
+- New `lib/features/settings/` — `AppSettings` (plain model) + `Settings`
+  `@riverpod` notifier over an **untyped Hive box `settings`** (`wellsPerRow`,
+  `useCountdown`). `main.dart` opens the box before `runApp`.
+- #6: `_startCapture` honours `useCountdown`; a timer icon on the camera screen
+  toggles it.
+- #3: removed `AppConstants.gridCols`; `PlateDetectorService.analyse` takes a
+  `gridCols` param (default `defaultGridCols` = 3), threaded from the setting
+  via `AnalysisScreen` → `analyzeImage(wellsPerRow:)`. Home screen got a
+  wells-per-row stepper. `ResultCalculator` now parses the row index and treats
+  any row ≥ 3 as sample (was `startsWith('R3')`).
+- #4: `AnalysisNotifier._persistImage` copies captures into
+  `<app documents>/captures/<id><ext>`; `CsvExportService` zips CSV + images
+  (new `archive` dependency). History delete/clear cleans up owned capture
+  files, guarded by `p.isWithin` so it never deletes a user's gallery original.
+- #5: confirmed fixed `applicationId`; added a History-screen ℹ️ dialog
+  explaining updates keep data, only uninstall wipes it.
+- `widget_test.dart` now inits Hive + opens the settings box in `setUpAll`
+  (the home screen reads `settingsProvider`).
+- Updated `TODO.md`, `agentrunbook.md`, `CLAUDE.md` context to match.
+
+**Verification:** `build_runner` regenerated (`settings_provider.g.dart`).
+`flutter analyze` clean except the pre-existing router `AutoDisposeProviderRef`
+deprecation. `flutter test` 9/9. **No device pass** — everything here is
+static/emulator-free. Non-3-column detection geometry and the camera timer
+toggle are unverified on hardware (see Open threads / Next step).
+
+**Learned:** A screen that reads `settingsProvider` will fail in tests unless
+the `settings` box is opened in `setUpAll`; the Hive error surfaces as a
+cascading RenderFlex overflow, which is misleading — check for a provider
+build exception first.
+
+**Failed attempts:** None.
+
+**State at end of session:** Code + tests green, docs updated, ready to commit.
+Not yet committed or pushed; not device-verified.
+
+### 2026-07-11 - Session 10 - Stable release APK names - Codex / GPT-5
+
+**Goal this session:** Ensure every release delivery APK includes the app
+version and source commit in its filename.
+
+**Changed:** Added `tool/build_release_apk.dart`. Its default command builds a
+release with the current `GIT_COMMIT` value, then writes
+`apks/dengue-reader-<version>-<short-commit>.apk`. The optional
+`--reuse-existing` mode names the current release output without rebuilding.
+
+**Verification:** `dart run tool/build_release_apk.dart --reuse-existing`
+created `apks/dengue-reader-1.0.0-5ddbaf5.apk` from the verified release
+output. The helper was also checked for formatting and compiles successfully.
+
+**Learned:** Treat Flutter's `app-release.apk` as a temporary compiler output;
+the named file in `apks/` is the artifact intended for sharing.
+
+**Failed attempts:** None.
+
+**State at end of session:** Ready for final commit and push.
 
 ### 2026-07-11 - Session 9 - Restore visible app version - Codex / GPT-5
 

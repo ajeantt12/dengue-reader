@@ -24,10 +24,12 @@ class AppConstants {
   static const double reactiveHueMin = 40;
   static const double reactiveHueMax = 80;
 
-  // Visible well grid on a close-up capture: 3 rows × 3 columns. The top row is
-  // the reactive (test) line — a positive plate develops it yellow. See
-  // assets/research/CALIBRATION.md. Well positions are no longer hard-coded:
-  // PlateDetectorService locates the wells by scanning the whole bright frame.
+  // Well grid on a close-up capture: 3 rows (row 1 positive control, row 2
+  // negative control, row 3 sample — see ResultCalculator). The column count
+  // (wells per row) varies between plate designs and is chosen by the user
+  // before capture, so it lives in AppSettings, not here; PlateDetectorService
+  // takes it as a `gridCols` argument (default PlateDetectorService.defaultGridCols).
+  // Well positions themselves are never hard-coded: the detector locates the
+  // wells by scanning the whole bright frame. See assets/research/CALIBRATION.md.
   static const int gridRows = 3;
-  static const int gridCols = 3;
 }
